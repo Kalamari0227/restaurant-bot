@@ -1,0 +1,11 @@
+[project]
+name = "restaurant-bot"
+version = "0.1.0"
+description = "Restaurant bot with triage-based OpenAI Agents SDK handoffs"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "openai-agents>=0.2.9",
+    "python-dotenv>=1.0.1",
+    "streamlit>=1.44.0",
+]
