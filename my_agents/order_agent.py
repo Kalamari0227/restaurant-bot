@@ -1,6 +1,7 @@
 from agents import Agent, RunContextWrapper
 
 from models import RestaurantContext
+from output_guardrails import restaurant_output_guardrail
 from tools import AgentToolUsageLoggingHooks, confirm_order, place_order
 
 
@@ -36,4 +37,5 @@ order_agent = Agent(
     instructions=dynamic_order_agent_instructions,
     tools=[place_order, confirm_order],
     hooks=AgentToolUsageLoggingHooks(),
+    output_guardrails=[restaurant_output_guardrail],
 )

@@ -1,6 +1,7 @@
 from agents import Agent, RunContextWrapper
 
 from models import RestaurantContext
+from output_guardrails import restaurant_output_guardrail
 from tools import (
     AgentToolUsageLoggingHooks,
     check_reservation_availability,
@@ -41,4 +42,5 @@ reservation_agent = Agent(
     instructions=dynamic_reservation_agent_instructions,
     tools=[check_reservation_availability, create_reservation],
     hooks=AgentToolUsageLoggingHooks(),
+    output_guardrails=[restaurant_output_guardrail],
 )

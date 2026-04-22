@@ -1,9 +1,18 @@
 import asyncio
 
 import streamlit as st
-from agents import Runner, SQLiteSession
+from agents import (
+    InputGuardrailTripwireTriggered,
+    OutputGuardrailTripwireTriggered,
+    Runner,
+    SQLiteSession,
+)
 
-from models import RestaurantContext
+from models import (
+    InputGuardrailOutput,
+    RestaurantContext,
+    RestaurantOutputGuardrailOutput,
+)
 from my_agents.triage_agent import triage_agent
 from settings import load_openai_api_key
 
@@ -18,7 +27,9 @@ except RuntimeError as exc:
 
 
 st.title("Restaurant Bot")
-st.caption("Triage Agent가 메뉴, 주문, 예약 담당으로 handoff하는 레스토랑 봇")
+st.caption(
+    "Triage Agent가 메뉴, 주문, 예약, 불만 접수 담당으로 handoff하는 레스토랑 봇"
+)
 
 
 if "session" not in st.session_state:
@@ -89,6 +100,26 @@ def _handoff_target_name(item) -> str | None:
     return None
 
 
+def _input_guardrail_message(exc: InputGuardrailTripwireTriggered) -> str:
+    output_info = getattr(exc.guardrail_result.output, "output_info", None)
+    if isinstance(output_info, InputGuardrailOutput):
+        return output_info.safe_reply
+    return (
+        "저는 레스토랑 관련 질문에 대해서만 도와드리고 있어요. "
+        "메뉴 확인, 주문, 예약, 불만 접수와 관련된 요청으로 말씀해 주세요."
+    )
+
+
+def _output_guardrail_message(exc: OutputGuardrailTripwireTriggered) -> str:
+    output_info = getattr(exc.guardrail_result.output, "output_info", None)
+    if isinstance(output_info, RestaurantOutputGuardrailOutput):
+        return output_info.safe_reply
+    return (
+        "죄송합니다. 방금 답변은 안내 기준을 충족하지 않아 표시하지 않았습니다. "
+        "레스토랑 관련 요청으로 다시 말씀해 주세요."
+    )
+
+
 async def run_agent(message: str) -> None:
     context = RestaurantContext()
 
@@ -101,33 +132,45 @@ async def run_agent(message: str) -> None:
         st.session_state["handoff_placeholder"] = handoff_placeholder
 
         response = ""
-        stream = Runner.run_streamed(
-            triage_agent,
-            message,
-            context=context,
-            session=session,
-        )
 
-        async for event in stream.stream_events():
-            if event.type == "raw_response_event":
-                if event.data.type == "response.output_text.delta":
-                    response += event.data.delta
-                    text_placeholder.write(response.replace("$", "\\$"))
-                elif event.data.type == "response.completed":
-                    status_container.update(label="응답 완료", state="complete")
-            elif event.type == "run_item_stream_event":
-                if event.name == "handoff_occured":
-                    target_name = _handoff_target_name(event.item)
-                    if target_name:
-                        status_container.update(
-                            label=f"{target_name}로 handoff 중...",
-                            state="running",
-                        )
+        try:
+            stream = Runner.run_streamed(
+                triage_agent,
+                message,
+                context=context,
+                session=session,
+            )
 
-        st.session_state.pop("handoff_placeholder", None)
+            async for event in stream.stream_events():
+                if event.type == "raw_response_event":
+                    if event.data.type == "response.output_text.delta":
+                        response += event.data.delta
+                        text_placeholder.write(response.replace("$", "\\$"))
+                    elif event.data.type == "response.completed":
+                        status_container.update(label="응답 완료", state="complete")
+                elif event.type == "run_item_stream_event":
+                    if event.name == "handoff_occured":
+                        target_name = _handoff_target_name(event.item)
+                        if target_name:
+                            status_container.update(
+                                label=f"{target_name}로 handoff 중...",
+                                state="running",
+                            )
+        except InputGuardrailTripwireTriggered as exc:
+            handoff_placeholder.empty()
+            text_placeholder.empty()
+            status_container.update(label="입력 가드레일 작동", state="error")
+            text_placeholder.write(_input_guardrail_message(exc))
+        except OutputGuardrailTripwireTriggered as exc:
+            handoff_placeholder.empty()
+            text_placeholder.empty()
+            status_container.update(label="출력 가드레일 작동", state="error")
+            text_placeholder.write(_output_guardrail_message(exc))
+        finally:
+            st.session_state.pop("handoff_placeholder", None)
 
 
-prompt = st.chat_input("메뉴, 주문, 예약에 대해 물어보세요")
+prompt = st.chat_input("메뉴, 주문, 예약, 불만 접수에 대해 물어보세요")
 
 if prompt:
     with st.chat_message("user"):

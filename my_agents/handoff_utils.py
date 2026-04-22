@@ -2,6 +2,7 @@ from models import HandoffData
 
 
 HANDOFF_MESSAGES = {
+    "Complaints Agent": "불편을 겪으셔서 죄송합니다. 고객 케어 담당이 바로 도와드릴게요...",
     "Menu Agent": "메뉴 전문가에게 연결합니다...",
     "Order Agent": "주문 담당에게 연결합니다...",
     "Reservation Agent": "예약 담당에게 연결합니다...",

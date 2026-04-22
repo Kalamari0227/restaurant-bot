@@ -11,6 +11,8 @@ from agents.extensions import handoff_filters
 from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
 
 from models import HandoffData, InputGuardrailOutput, RestaurantContext
+from output_guardrails import restaurant_output_guardrail
+from my_agents.complaints_agent import complaints_agent
 from my_agents.handoff_utils import format_handoff_message, format_handoff_status
 from my_agents.menu_agent import menu_agent
 from my_agents.order_agent import order_agent
@@ -21,14 +23,27 @@ input_guardrail_agent = Agent(
     name="Restaurant Scope Guardrail",
     model="gpt-5.4",
     instructions="""
-    Decide whether the user's message is in scope for a restaurant assistant.
+    Decide whether the user's message is safe and in scope for a restaurant assistant.
+
     In scope topics:
     - menu, ingredients, prices, vegetarian options, allergies
     - placing or confirming an order
     - table reservations, reservation changes, availability
+    - complaints about food, service, staff behavior, order mistakes, refunds, or manager callbacks
 
     Small greetings are allowed.
-    Everything else is off-topic.
+
+    Mark is_off_topic=true when the message is mainly unrelated to the restaurant.
+    Mark contains_inappropriate_language=true when the message includes abusive, threatening,
+    hateful, or sexually explicit language, even if it mentions the restaurant.
+
+    Always fill safe_reply:
+    - For off-topic requests, explain that you only help with restaurant-related requests such as
+      menus, orders, reservations, and complaint support.
+    - For inappropriate language, ask the user to rephrase respectfully and explain that you can
+      still help with restaurant-related requests once the language is appropriate.
+
+    Keep reason short and specific.
     """,
     output_type=InputGuardrailOutput,
 )
@@ -48,7 +63,10 @@ async def restaurant_scope_guardrail(
 
     return GuardrailFunctionOutput(
         output_info=result.final_output,
-        tripwire_triggered=result.final_output.is_off_topic,
+        tripwire_triggered=(
+            result.final_output.is_off_topic
+            or result.final_output.contains_inappropriate_language
+        ),
     )
 
 
@@ -80,7 +98,14 @@ def dynamic_triage_instructions(
     - checking availability
     - changing or canceling a reservation
 
+    Route to Complaints Agent for:
+    - dissatisfaction with food quality or service
+    - rude staff, poor experience, delayed orders, wrong orders
+    - refund requests tied to a bad experience
+    - requests to speak with a manager or receive compensation
+
     Rules:
+    - If the user is unhappy or complaining, prioritize Complaints Agent.
     - If routing is clear, hand off immediately.
     - Do not answer specialist questions yourself once the route is clear.
     - If unclear, ask one short clarifying question.
@@ -88,7 +113,7 @@ def dynamic_triage_instructions(
 
     For handoff metadata:
     - to_agent_name: exact specialist agent name
-    - request_type: menu, order, or reservation
+    - request_type: menu, order, reservation, or complaint
     - request_description: brief summary of what the user wants
     - reason: brief reason this specialist is the correct destination
     """
@@ -134,7 +159,9 @@ triage_agent = Agent(
     model="gpt-5.4",
     instructions=dynamic_triage_instructions,
     input_guardrails=[restaurant_scope_guardrail],
+    output_guardrails=[restaurant_output_guardrail],
     handoffs=[
+        make_handoff(complaints_agent),
         make_handoff(menu_agent),
         make_handoff(order_agent),
         make_handoff(reservation_agent),

@@ -255,6 +255,92 @@ def create_reservation(
     )
 
 
+@function_tool
+def offer_refund_resolution(context: RestaurantContext, issue_summary: str) -> str:
+    """
+    Record a refund review request for a complaint.
+
+    Args:
+        issue_summary: Brief summary of the guest's complaint
+    """
+    return (
+        "불편을 드려 죄송합니다. 환불 검토 요청을 접수했습니다.\n"
+        f"- 내용: {issue_summary}\n"
+        f"- 매장: {context.restaurant_name} {context.branch_name}\n"
+        "담당자가 확인 후 가능한 가장 빠르게 안내드리겠습니다."
+    )
+
+
+@function_tool
+def offer_discount_resolution(
+    context: RestaurantContext,
+    issue_summary: str,
+    discount_percent: int = 50,
+) -> str:
+    """
+    Offer a service recovery discount for a future visit.
+
+    Args:
+        issue_summary: Brief summary of the guest's complaint
+        discount_percent: Discount percentage for the next visit
+    """
+    return (
+        "불편을 드려 죄송합니다. 서비스 회복 차원에서 다음 방문 시 사용할 수 있는 "
+        f"{discount_percent}% 할인 안내를 준비했습니다.\n"
+        f"- 내용: {issue_summary}\n"
+        "원하시면 사용 방법까지 이어서 안내드리겠습니다."
+    )
+
+
+@function_tool
+def request_manager_callback(
+    context: RestaurantContext,
+    issue_summary: str,
+    customer_name: str = "",
+    phone: str = "",
+) -> str:
+    """
+    Request a direct callback from the restaurant manager.
+
+    Args:
+        issue_summary: Brief summary of the guest's complaint
+        customer_name: Guest name when available
+        phone: Callback number when available
+    """
+    name = customer_name if customer_name else "미확인"
+    callback_number = phone if phone else "미확인"
+    return (
+        "매니저 직접 연락 요청을 접수했습니다.\n"
+        f"- 내용: {issue_summary}\n"
+        f"- 고객명: {name}\n"
+        f"- 연락처: {callback_number}\n"
+        f"- 대표번호: {context.phone_number}\n"
+        "연락처가 아직 없으면 회신 가능한 번호를 알려주세요."
+    )
+
+
+@function_tool
+def escalate_serious_complaint(
+    context: RestaurantContext,
+    issue_summary: str,
+    severity: str = "high",
+) -> str:
+    """
+    Escalate a serious complaint for urgent human follow-up.
+
+    Args:
+        issue_summary: Brief summary of the guest's complaint
+        severity: low, medium, high, or urgent
+    """
+    return (
+        "중요 민원으로 분류해 즉시 에스컬레이션했습니다.\n"
+        f"- 심각도: {severity}\n"
+        f"- 내용: {issue_summary}\n"
+        f"- 긴급 연락처: {context.phone_number}\n"
+        "안전, 위생, 차별, 반복적인 서비스 실패 문제는 매니저가 우선 확인합니다."
+    )
+
+
 class AgentToolUsageLoggingHooks(AgentHooks):
     async def on_tool_start(
         self,

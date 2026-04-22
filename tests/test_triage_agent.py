@@ -5,6 +5,19 @@ from my_agents.handoff_utils import format_handoff_message, format_handoff_statu
 
 
 class TriageAgentTests(unittest.TestCase):
+    def test_format_handoff_status_maps_complaints_agent(self) -> None:
+        input_data = HandoffData(
+            to_agent_name="Complaints Agent",
+            request_type="complaint",
+            request_description="음식과 서비스가 모두 실망스러웠음",
+            reason="The user is complaining about a bad dining experience.",
+        )
+
+        self.assertEqual(
+            format_handoff_status(input_data),
+            "불편을 겪으셔서 죄송합니다. 고객 케어 담당이 바로 도와드릴게요...",
+        )
+
     def test_format_handoff_message_uses_restaurant_fields(self) -> None:
         input_data = HandoffData(
             to_agent_name="Menu Agent",
