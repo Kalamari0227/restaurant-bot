@@ -20,4 +20,5 @@ wheels/
 .mypy_cache/
 .ruff_cache/
 .streamlit/
+harness/
 .DS_Store
