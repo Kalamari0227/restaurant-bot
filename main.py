@@ -97,7 +97,7 @@ FEATURE_ACTIONS = [
     ),
     (
         "빠른 주문 전환",
-        "바로 주문으로 이어질 수 있게 인기 메뉴를 먼저 잡아드릴게요.",
+        "바로 주문하실 수 있도록 도와드릴게요.",
         "지금 바로 주문하기 좋은 메뉴 추천해줘",
     ),
     (
@@ -160,6 +160,16 @@ def apply_custom_css() -> None:
             overflow-x: hidden !important;
         }
 
+        [data-testid="stMainBlockContainer"] {
+            background: rgba(255, 255, 255, 0.97) !important;
+            border: 1px solid rgba(35, 35, 35, 0.06);
+            border-radius: 34px;
+            box-shadow: 0 24px 60px rgba(20, 20, 20, 0.06);
+            padding: 0.9rem 1rem 7rem !important;
+            margin-top: 0.35rem;
+            margin-bottom: 1rem;
+        }
+
         [data-testid="stSidebar"] {
             background:
                 linear-gradient(180deg, rgba(246, 236, 220, 0.98) 0%, rgba(239, 226, 204, 0.96) 100%)
@@ -210,11 +220,11 @@ def apply_custom_css() -> None:
         }
 
         [data-testid="stChatMessage"] [data-testid="stChatMessageContent"] {
-            border: 1px solid rgba(138, 75, 22, 0.08);
+            border: 1px solid rgba(36, 36, 36, 0.08);
             border-radius: 24px 24px 24px 10px;
-            background: rgba(255, 252, 247, 0.94);
-            box-shadow: 0 18px 50px rgba(89, 54, 19, 0.05);
-            padding: 0.7rem 0.95rem 0.8rem;
+            background: #f4f4f7;
+            box-shadow: none;
+            padding: 0.72rem 0.96rem 0.82rem;
         }
 
         [data-stale="true"] {
@@ -231,11 +241,11 @@ def apply_custom_css() -> None:
             max-width: min(70%, 720px);
             margin: 0.35rem 0 0.75rem auto;
             padding: 0.8rem 1rem;
-            border: 1px solid rgba(138, 75, 22, 0.08);
+            border: none;
             border-radius: 24px 24px 10px 24px;
-            background: linear-gradient(135deg, rgba(145, 84, 28, 0.96), rgba(120, 63, 15, 0.96));
-            box-shadow: 0 18px 42px rgba(89, 54, 19, 0.14);
-            color: #fffaf4;
+            background: linear-gradient(135deg, #4f5bd5 0%, #6a4ef6 52%, #8a3ab9 100%);
+            box-shadow: 0 10px 26px rgba(86, 72, 180, 0.18);
+            color: #ffffff;
             line-height: 1.6;
             white-space: pre-wrap;
             word-break: break-word;
@@ -257,10 +267,11 @@ def apply_custom_css() -> None:
         }
 
         .hero-card {
-            padding: 1.08rem 1.45rem;
-            background:
-                radial-gradient(circle at right top, rgba(222, 181, 128, 0.18), transparent 28%),
-                linear-gradient(135deg, rgba(255, 250, 241, 0.98), rgba(245, 232, 211, 0.95));
+            padding: 0.15rem 0 0.55rem;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
         }
 
         .hero-shell-anchor,
@@ -270,7 +281,7 @@ def apply_custom_css() -> None:
 
         [data-testid="stVerticalBlock"]:has(.hero-shell-anchor),
         [data-testid="stVerticalBlock"]:has(.feature-shell-anchor) {
-            margin-bottom: 1rem;
+            margin-bottom: 0.7rem;
         }
 
         .composer-shell-anchor {
@@ -278,26 +289,33 @@ def apply_custom_css() -> None:
         }
 
         [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) {
-            margin-top: 0.9rem;
-            border: 1px solid var(--line);
-            border-radius: 26px;
-            background: rgba(255, 251, 244, 0.94);
-            box-shadow: 0 20px 45px rgba(89, 54, 19, 0.08);
-            padding: 0.3rem 0.55rem 0.55rem;
+            margin-top: 0.55rem;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
+            padding: 0;
             position: sticky;
-            bottom: 0.85rem;
+            bottom: 0.55rem;
             z-index: 20;
-            backdrop-filter: blur(14px);
+            backdrop-filter: none;
         }
 
         [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) form {
             margin-bottom: 0;
+            padding: 0.34rem 0.4rem;
+            border: 1px solid rgba(24, 24, 24, 0.1);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.98);
+            box-shadow: 0 10px 30px rgba(24, 24, 24, 0.08);
         }
 
         [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) [data-testid="stTextInput"] input {
             border: none !important;
             background: transparent !important;
             box-shadow: none !important;
+            min-height: 2.75rem;
+            padding-left: 0.45rem !important;
         }
 
         [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) [data-testid="stTextInput"] > div,
@@ -313,45 +331,86 @@ def apply_custom_css() -> None:
             box-shadow: none !important;
         }
 
-        .hero-kicker {
+        [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) .stTextInput {
+            margin-bottom: 0;
+        }
+
+        [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) .stButton > button {
+            min-height: 2.5rem;
+            border-radius: 999px;
+            border: none;
+            background: #0095f6;
+            color: #ffffff;
+            box-shadow: none;
+        }
+
+        [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) .stButton > button:hover {
+            border: none;
+            color: #ffffff;
+            background: #1877f2;
+        }
+
+        .dm-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding-bottom: 0.8rem;
+            border-bottom: 1px solid rgba(24, 24, 24, 0.08);
+        }
+
+        .dm-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+        }
+
+        .dm-logo {
+            align-items: center;
+            justify-content: center;
+            width: 3rem;
+            height: 3rem;
+            display: inline-flex;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8a4b16 0%, #b97536 100%);
+            color: #fffdf8;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .dm-name {
+            display: block;
+            color: #111111;
+            font-size: 1.15rem;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .dm-meta {
+            display: block;
+            margin-top: 0.16rem;
+            color: #6f6f78;
+            font-size: 0.92rem;
+            line-height: 1.35;
+        }
+
+        .dm-social {
             display: inline-flex;
             align-items: center;
             gap: 0.45rem;
-            padding: 0.28rem 0.72rem;
+            padding: 0.45rem 0.82rem;
             border-radius: 999px;
-            background: rgba(138, 75, 22, 0.08);
-            color: var(--accent);
-            font-size: 0.84rem;
-            font-weight: 700;
-            letter-spacing: 0.02em;
-        }
-
-        .hero-title {
-            margin: 0.5rem 0 0.08rem;
-            font-size: 3rem;
-            line-height: 1.02;
-        }
-
-        .hero-subtitle {
-            margin: 0;
-            max-width: 680px;
-            color: var(--subtle);
-            font-size: 1.03rem;
-            line-height: 1.7;
-        }
-
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 0.9rem;
-            margin-top: 1rem;
+            background: #f5f5f7;
+            color: #1f1f24;
+            font-size: 0.88rem;
+            font-weight: 600;
         }
 
         .feature-card {
-            border: 1px solid rgba(138, 75, 22, 0.12);
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.58);
-            padding: 0.76rem 0.82rem;
+            border: none;
+            border-radius: 18px;
+            background: #f7f7f8;
+            padding: 0.68rem 0.78rem;
         }
 
         .feature-action-anchor {
@@ -359,35 +418,50 @@ def apply_custom_css() -> None:
         }
 
         [data-testid="stVerticalBlock"]:has(.feature-action-anchor) {
-            border: 1px solid rgba(138, 75, 22, 0.12);
-            border-radius: 22px;
-            background: rgba(255, 253, 249, 0.75);
-            box-shadow: 0 14px 34px rgba(89, 54, 19, 0.05);
-            padding: 0.68rem 0.82rem 0.78rem;
+            border: 1px solid rgba(24, 24, 24, 0.08);
+            border-radius: 20px;
+            background: #ffffff;
+            box-shadow: none;
+            padding: 0.58rem 0.68rem 0.66rem;
             height: 100%;
             display: flex;
             flex-direction: column;
         }
 
         [data-testid="stVerticalBlock"]:has(.feature-action-anchor) .feature-card {
-            margin-bottom: 0.7rem;
+            margin-bottom: 0.5rem;
         }
 
         [data-testid="stVerticalBlock"]:has(.feature-action-anchor) .stButton {
             margin-top: auto;
         }
 
+        [data-testid="stVerticalBlock"]:has(.feature-action-anchor) .stButton > button {
+            min-height: 2.55rem;
+            border-radius: 999px;
+            border: 1px solid rgba(24, 24, 24, 0.08);
+            background: #ffffff;
+            color: #111111;
+            box-shadow: none;
+        }
+
+        [data-testid="stVerticalBlock"]:has(.feature-action-anchor) .stButton > button:hover {
+            border-color: rgba(24, 24, 24, 0.14);
+            color: #111111;
+            background: #fafafa;
+        }
+
         .feature-card strong {
             display: block;
-            margin-bottom: 0.35rem;
-            color: var(--ink);
-            font-size: 1rem;
+            margin-bottom: 0.22rem;
+            color: #151515;
+            font-size: 0.95rem;
         }
 
         .feature-card span {
-            color: var(--subtle);
-            font-size: 0.92rem;
-            line-height: 1.5;
+            color: #6e6e77;
+            font-size: 0.86rem;
+            line-height: 1.42;
         }
 
         .agent-badge,
@@ -772,8 +846,16 @@ def render_hero() -> None:
         st.markdown(
             """
             <div class="hero-card">
-              <span class="hero-kicker">DODAM RESTAURANT · AI HOST</span>
-              <h1 class="hero-title">도담 레스토랑 챗봇</h1>
+              <div class="dm-header">
+                <div class="dm-brand">
+                  <div class="dm-logo">D</div>
+                  <div>
+                    <span class="dm-name">Dodam Restaurant</span>
+                    <span class="dm-meta">AI host for menu, orders, reservations, and care</span>
+                  </div>
+                </div>
+                <div class="dm-social">♡ 12.4k likes</div>
+              </div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1280,6 +1362,7 @@ user_prompt = pending_prompt or queued_prompt
 
 if user_prompt:
     render_user_bubble(user_prompt)
+    render_auto_scroll_bridge()
     asyncio.run(
         run_agent(
         user_prompt,
