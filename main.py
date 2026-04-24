@@ -151,7 +151,7 @@ def apply_custom_css() -> None:
         .stApp {
             background:
                 linear-gradient(180deg, #f9f7f2 0%, #f2eee6 100%);
-            color: var(--ink);
+            color: var(--ink) !important;
         }
 
         [data-testid="stMain"],
@@ -205,6 +205,20 @@ def apply_custom_css() -> None:
 
         p, li, label, [data-testid="stMarkdownContainer"] {
             font-family: "Avenir Next", "Pretendard", "Noto Sans KR", sans-serif;
+            color: var(--ink);
+        }
+
+        [data-testid="stMainBlockContainer"],
+        [data-testid="stMainBlockContainer"] p,
+        [data-testid="stMainBlockContainer"] li,
+        [data-testid="stMainBlockContainer"] span,
+        [data-testid="stMainBlockContainer"] strong,
+        [data-testid="stSidebar"],
+        [data-testid="stSidebar"] p,
+        [data-testid="stSidebar"] li,
+        [data-testid="stSidebar"] span,
+        [data-testid="stSidebar"] strong {
+            color: inherit;
         }
 
         [data-testid="stChatMessage"] {
@@ -230,8 +244,16 @@ def apply_custom_css() -> None:
             border: 1px solid rgba(36, 36, 36, 0.08);
             border-radius: 14px 14px 14px 6px;
             background: #f5f3ee;
+            color: var(--ink) !important;
             box-shadow: none;
             padding: 0.72rem 0.96rem 0.82rem;
+        }
+
+        [data-testid="stChatMessage"] [data-testid="stChatMessageContent"] p,
+        [data-testid="stChatMessage"] [data-testid="stChatMessageContent"] li,
+        [data-testid="stChatMessage"] [data-testid="stChatMessageContent"] span,
+        [data-testid="stChatMessage"] [data-testid="stChatMessageContent"] strong {
+            color: var(--ink) !important;
         }
 
         [data-stale="true"] {
@@ -256,6 +278,11 @@ def apply_custom_css() -> None:
             line-height: 1.6;
             white-space: pre-wrap;
             word-break: break-word;
+        }
+
+        .user-bubble,
+        .user-bubble * {
+            color: #ffffff !important;
         }
 
         .composer-shell-anchor,
@@ -306,8 +333,14 @@ def apply_custom_css() -> None:
             border: none !important;
             background: transparent !important;
             box-shadow: none !important;
+            color: var(--ink) !important;
             min-height: 2.75rem;
             padding-left: 0.45rem !important;
+        }
+
+        [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) [data-testid="stTextInput"] input::placeholder {
+            color: var(--subtle) !important;
+            opacity: 0.72;
         }
 
         [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) [data-testid="stTextInput"] > div,
@@ -355,6 +388,11 @@ def apply_custom_css() -> None:
             box-shadow: none;
         }
 
+        .brand-card,
+        .brand-card * {
+            color: var(--ink) !important;
+        }
+
         .brand-copy {
             display: flex;
             align-items: center;
@@ -374,6 +412,10 @@ def apply_custom_css() -> None:
             font-size: 1.1rem;
             font-weight: 700;
             flex: 0 0 auto;
+        }
+
+        .brand-mark {
+            color: #fffdf8 !important;
         }
 
         .brand-name {
@@ -405,6 +447,10 @@ def apply_custom_css() -> None:
             font-weight: 600;
         }
 
+        .brand-pill {
+            color: var(--subtle) !important;
+        }
+
         .feature-card {
             border: none;
             border-radius: 10px;
@@ -425,6 +471,11 @@ def apply_custom_css() -> None:
             height: 100%;
             display: flex;
             flex-direction: column;
+            color: var(--ink) !important;
+        }
+
+        [data-testid="stVerticalBlock"]:has(.feature-action-anchor) * {
+            color: var(--ink);
         }
 
         [data-testid="stVerticalBlock"]:has(.feature-action-anchor) .feature-card {
@@ -463,12 +514,22 @@ def apply_custom_css() -> None:
             line-height: 1.42;
         }
 
+        .feature-card span {
+            color: #6e6e77 !important;
+        }
+
         .sidebar-panel {
             margin-bottom: 0.75rem;
             padding: 0.9rem;
             border: 1px solid rgba(77, 91, 104, 0.12);
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.58);
+            color: var(--ink) !important;
+        }
+
+        .sidebar-panel,
+        .sidebar-panel * {
+            color: var(--ink) !important;
         }
 
         .sidebar-title {
@@ -489,6 +550,10 @@ def apply_custom_css() -> None:
             border-top: 1px solid rgba(77, 91, 104, 0.1);
             color: var(--subtle);
             font-size: 0.86rem;
+        }
+
+        .sidebar-row span {
+            color: var(--subtle) !important;
         }
 
         .sidebar-row:first-of-type {
@@ -581,10 +646,16 @@ def apply_custom_css() -> None:
             line-height: 1.45;
         }
 
+        .agent-inline-status,
+        .agent-inline-status span {
+            color: var(--subtle) !important;
+        }
+
         .notice-card {
             padding: 0.9rem 1rem;
             margin-bottom: 0.65rem;
             background: rgba(255, 247, 236, 0.92);
+            color: var(--ink) !important;
         }
 
         .notice-card strong {
@@ -606,6 +677,10 @@ def apply_custom_css() -> None:
             font-weight: 600;
         }
 
+        .handoff-note {
+            color: var(--accent) !important;
+        }
+
         .progress-note {
             display: inline-flex;
             align-items: center;
@@ -613,6 +688,10 @@ def apply_custom_css() -> None:
             margin: 0.4rem 0 0.6rem;
             color: var(--subtle);
             font-size: 0.9rem;
+        }
+
+        .progress-note {
+            color: var(--subtle) !important;
         }
 
         .stButton > button {
@@ -625,10 +704,20 @@ def apply_custom_css() -> None:
             box-shadow: none;
         }
 
+        .stButton > button,
+        .stButton > button * {
+            color: var(--ink) !important;
+        }
+
         .stButton > button:hover {
             border-color: rgba(138, 75, 22, 0.38);
             color: var(--accent);
             background: rgba(255, 247, 234, 0.98);
+        }
+
+        [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) .stButton > button,
+        [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) .stButton > button * {
+            color: #ffffff !important;
         }
 
         [data-testid="stChatInputTextArea"] textarea {
