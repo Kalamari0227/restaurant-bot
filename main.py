@@ -687,6 +687,7 @@ def init_session_state() -> None:
     st.session_state.setdefault("handoff_status_message", "")
     st.session_state.setdefault("starter_prompt", None)
     st.session_state.setdefault("pending_user_prompt", None)
+    st.session_state.setdefault("scroll_request_nonce", 0)
     st.session_state.setdefault("last_guardrail_type", None)
     st.session_state["message_agent_map"] = load_message_agent_map()
 
@@ -1026,16 +1027,14 @@ def render_sidebar(context: RestaurantContext, session: SQLiteSession):
     return sidebar_summary_placeholder
 
 
-def render_auto_scroll_bridge() -> None:
-    components.html(
-        """
+def render_auto_scroll_bridge(scroll_request_nonce: int) -> None:
+    script = """
         <script>
         const parentWindow = window.parent;
         const parentDocument = parentWindow.document;
-        const stickKey = "restaurantBotStickToBottom";
+        const currentNonce = __SCROLL_NONCE__;
 
         try {
-          parentWindow.sessionStorage.setItem(stickKey, "1");
           if ("scrollRestoration" in parentWindow.history) {
             parentWindow.history.scrollRestoration = "manual";
           }
@@ -1052,6 +1051,9 @@ def render_auto_scroll_bridge() -> None:
         const getComposerAnchor = () =>
           parentDocument.querySelector('.composer-shell-anchor');
 
+        const nearBottom = node =>
+          !!node && node.scrollHeight - node.scrollTop - node.clientHeight < 96;
+
         const scrollNodeToBottom = node => {
           if (!node) return;
 
@@ -1062,13 +1064,21 @@ def render_auto_scroll_bridge() -> None:
           }
         };
 
-        const scrollToLatest = () => {
-          scrollNodeToBottom(getMainScroller());
-          scrollNodeToBottom(getSidebarScroller());
+        const scrollToLatest = force => {
+          const mainScroller = getMainScroller();
+          const sidebarScroller = getSidebarScroller();
+
+          if (force || parentWindow.__restaurantBotStickMain !== false) {
+            scrollNodeToBottom(mainScroller);
+          }
+          if (force || parentWindow.__restaurantBotStickSidebar !== false) {
+            scrollNodeToBottom(sidebarScroller);
+          }
+
           const composerAnchor = getComposerAnchor();
-          if (composerAnchor) {
+          if (composerAnchor && (force || parentWindow.__restaurantBotStickMain !== false)) {
             composerAnchor.scrollIntoView({ behavior: "auto", block: "end" });
-          } else {
+          } else if (force) {
             parentWindow.scrollTo({
               top: parentDocument.body.scrollHeight,
               behavior: "auto",
@@ -1076,31 +1086,65 @@ def render_auto_scroll_bridge() -> None:
           }
         };
 
-        const scheduleScroll = () => {
+        const scheduleScroll = force => {
           clearTimeout(parentWindow.__restaurantBotScrollTimer);
           parentWindow.__restaurantBotScrollTimer = setTimeout(() => {
-            scrollToLatest();
-            parentWindow.requestAnimationFrame(scrollToLatest);
+            scrollToLatest(force);
+            parentWindow.requestAnimationFrame(() => scrollToLatest(force));
           }, 30);
         };
 
-        const reinforceScroll = () => {
+        const reinforceScroll = force => {
           let attempts = 0;
           clearInterval(parentWindow.__restaurantBotScrollInterval);
           parentWindow.__restaurantBotScrollInterval = setInterval(() => {
-            scrollToLatest();
+            scrollToLatest(force);
             attempts += 1;
-            if (attempts >= 18) {
+            if (attempts >= 10) {
               clearInterval(parentWindow.__restaurantBotScrollInterval);
             }
-          }, 120);
+          }, 90);
         };
 
-        scheduleScroll();
-        reinforceScroll();
+        const bindStickiness = () => {
+          const mainScroller = getMainScroller();
+          const sidebarScroller = getSidebarScroller();
 
-        parentWindow.addEventListener("load", scheduleScroll, { once: true });
-        parentWindow.addEventListener("pageshow", scheduleScroll, { once: true });
+          if (mainScroller && mainScroller !== parentWindow.__restaurantBotMainScroller) {
+            parentWindow.__restaurantBotMainScroller = mainScroller;
+            parentWindow.__restaurantBotStickMain = nearBottom(mainScroller);
+            mainScroller.addEventListener("scroll", () => {
+              parentWindow.__restaurantBotStickMain = nearBottom(mainScroller);
+            }, { passive: true });
+          }
+
+          if (sidebarScroller && sidebarScroller !== parentWindow.__restaurantBotSidebarScroller) {
+            parentWindow.__restaurantBotSidebarScroller = sidebarScroller;
+            parentWindow.__restaurantBotStickSidebar = nearBottom(sidebarScroller);
+            sidebarScroller.addEventListener("scroll", () => {
+              parentWindow.__restaurantBotStickSidebar = nearBottom(sidebarScroller);
+            }, { passive: true });
+          }
+        };
+
+        bindStickiness();
+
+        const lastHandledNonce = parentWindow.__restaurantBotScrollNonce ?? -1;
+        const forceScroll = currentNonce !== lastHandledNonce;
+        parentWindow.__restaurantBotScrollNonce = currentNonce;
+
+        if (forceScroll) {
+          parentWindow.__restaurantBotStickMain = true;
+          parentWindow.__restaurantBotStickSidebar = true;
+        }
+
+        scheduleScroll(forceScroll);
+        if (forceScroll) {
+          reinforceScroll(true);
+        }
+
+        parentWindow.addEventListener("load", () => scheduleScroll(false), { once: true });
+        parentWindow.addEventListener("pageshow", () => scheduleScroll(false), { once: true });
 
         if (!parentWindow.__restaurantBotScrollObserver) {
           const appRoot =
@@ -1108,8 +1152,8 @@ def render_auto_scroll_bridge() -> None:
             parentDocument.body;
 
           parentWindow.__restaurantBotScrollObserver = new MutationObserver(() => {
-            scheduleScroll();
-            reinforceScroll();
+            bindStickiness();
+            scheduleScroll(false);
           });
 
           parentWindow.__restaurantBotScrollObserver.observe(appRoot, {
@@ -1119,7 +1163,10 @@ def render_auto_scroll_bridge() -> None:
           });
         }
         </script>
-        """,
+        """
+    script = script.replace("__SCROLL_NONCE__", str(scroll_request_nonce))
+    components.html(
+        script,
         height=0,
         width=0,
     )
@@ -1361,8 +1408,9 @@ pending_prompt = st.session_state.pop("pending_user_prompt", None)
 user_prompt = pending_prompt or queued_prompt
 
 if user_prompt:
+    st.session_state["scroll_request_nonce"] += 1
     render_user_bubble(user_prompt)
-    render_auto_scroll_bridge()
+    render_auto_scroll_bridge(st.session_state["scroll_request_nonce"])
     asyncio.run(
         run_agent(
         user_prompt,
@@ -1372,4 +1420,4 @@ if user_prompt:
     )
 
 render_chat_composer()
-render_auto_scroll_bridge()
+render_auto_scroll_bridge(st.session_state["scroll_request_nonce"])
