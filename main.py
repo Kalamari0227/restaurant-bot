@@ -487,8 +487,13 @@ def apply_custom_css() -> None:
             border-radius: 8px;
             border: 1px solid rgba(77, 91, 104, 0.14);
             background: #f7f7f5;
-            color: var(--ink);
+            color: var(--ink) !important;
             box-shadow: none;
+        }
+
+        [data-testid="stVerticalBlock"]:has(.feature-action-anchor) .stButton > button *,
+        [data-testid="stVerticalBlock"]:has(.feature-action-anchor) .stButton > button p {
+            color: var(--ink) !important;
         }
 
         [data-testid="stVerticalBlock"]:has(.feature-action-anchor) .stButton > button:hover {
