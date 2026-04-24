@@ -474,10 +474,6 @@ def apply_custom_css() -> None:
             color: var(--ink) !important;
         }
 
-        [data-testid="stVerticalBlock"]:has(.feature-action-anchor) * {
-            color: var(--ink) !important;
-        }
-
         [data-testid="stVerticalBlock"]:has(.feature-action-anchor) .feature-card {
             margin-bottom: 0.5rem;
         }
@@ -720,6 +716,11 @@ def apply_custom_css() -> None:
             border-color: rgba(138, 75, 22, 0.38);
             color: var(--accent);
             background: rgba(255, 247, 234, 0.98);
+        }
+
+        .user-bubble,
+        .user-bubble * {
+            color: #ffffff !important;
         }
 
         [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) .stButton > button,
