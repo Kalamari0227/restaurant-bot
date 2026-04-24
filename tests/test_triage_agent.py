@@ -1,6 +1,8 @@
 import unittest
+from types import SimpleNamespace
 
 from models import HandoffData
+from my_agents import triage_agent
 from my_agents.handoff_utils import format_handoff_message, format_handoff_status
 
 
@@ -48,6 +50,29 @@ class TriageAgentTests(unittest.TestCase):
         self.assertEqual(
             format_handoff_status(input_data),
             "예약 담당에게 연결합니다...",
+        )
+
+    def test_triage_prompt_routes_allergy_recommendations_to_menu_agent(self) -> None:
+        wrapper = SimpleNamespace(
+            context=SimpleNamespace(
+                restaurant_name="Nomad Kitchen",
+                branch_name="Seoul Gangnam",
+            )
+        )
+
+        instructions = triage_agent.dynamic_triage_instructions(wrapper, object())
+
+        self.assertIn(
+            "recommendation requests that mention allergies, dietary restrictions, or companions with food restrictions",
+            instructions,
+        )
+        self.assertIn(
+            "For allergy-aware or diet-aware menu recommendations, always hand off to Menu Agent first.",
+            instructions,
+        )
+        self.assertIn(
+            "If the domain is clear but the specialist still needs missing details, hand off anyway.",
+            instructions,
         )
 
 

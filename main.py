@@ -1,6 +1,10 @@
 import asyncio
+import html
+import sqlite3
 
 import streamlit as st
+import streamlit.components.v1 as components
+from openai import APIError
 from agents import (
     InputGuardrailTripwireTriggered,
     OutputGuardrailTripwireTriggered,
@@ -25,7 +29,16 @@ st.set_page_config(
 )
 
 
+SESSION_DB_PATH = "restaurant-bot-memory.db"
+
+
 AGENT_THEMES = {
+    "Assistant": {
+        "label": "Assistant",
+        "headline": "응답 안내 중",
+        "description": "현재 세션에서 생성된 응답입니다.",
+        "tone": "ready",
+    },
     "Ready": {
         "label": "Ready",
         "headline": "대화를 시작할 준비가 되었습니다.",
@@ -76,39 +89,38 @@ AGENT_THEMES = {
     },
 }
 
-FEATURE_CARDS = [
-    ("오늘의 추천", "취향과 상황을 바탕으로 메뉴를 바로 추천합니다."),
-    ("빠른 주문 전환", "추천 메뉴에서 바로 주문 의사까지 연결합니다."),
-    ("예약 안내", "가능 시간과 좌석 조건을 확인해 예약을 진행합니다."),
-    ("민원 케어", "불만 접수, 환불 검토, 매니저 콜백까지 이어집니다."),
-    ("매장 정보", "영업시간, 위치, 전화번호를 빠르게 안내합니다."),
-]
-
-QUICK_ACTIONS = [
-    ("오늘 저녁 추천 메뉴 알려줘", "오늘의 추천"),
-    ("비건 메뉴가 있는지 알려줘", "비건 메뉴"),
-    ("오늘 저녁 2인 예약 가능해?", "2인 예약"),
-    ("매장 위치와 영업시간 알려줘", "위치/영업시간"),
-]
-
-WELCOME_ACTIONS = [
-    ("오늘의 추천 메뉴 보여줘", "추천 메뉴"),
-    ("해산물 알레르기인데 먹을 수 있는 메뉴가 있을까?", "알레르기 안내"),
-    ("내일 점심 4인 예약하고 싶어", "예약하기"),
-    ("주문한 메뉴가 너무 늦게 나왔어", "불만 접수"),
-]
-
-TRUST_ITEMS = [
-    ("정확한 메뉴 추천", "취향과 재료 기준으로 선택지를 좁혀드립니다."),
-    ("간편한 예약/주문", "메뉴 상세에서 바로 다음 행동으로 넘어갑니다."),
-    ("실시간 상담 흐름", "현재 어떤 담당이 답변 중인지 항상 보입니다."),
-    ("안전한 응답", "가드레일이 입력과 출력을 함께 점검합니다."),
+FEATURE_ACTIONS = [
+    (
+        "오늘의 추천",
+        "오늘 가장 반응 좋은 메뉴부터 추천해드릴게요.",
+        "오늘 추천 메뉴 알려줘",
+    ),
+    (
+        "빠른 주문 전환",
+        "바로 주문으로 이어질 수 있게 인기 메뉴를 먼저 잡아드릴게요.",
+        "지금 바로 주문하기 좋은 메뉴 추천해줘",
+    ),
+    (
+        "예약 안내",
+        "가능 시간과 인원 조건을 빠르게 확인해드릴게요.",
+        "오늘 저녁 예약 가능한 시간 알려줘",
+    ),
+    (
+        "민원 케어",
+        "불편 사항을 접수하고 해결 옵션까지 바로 이어드릴게요.",
+        "불만 접수하고 싶어요",
+    ),
+    (
+        "매장 정보",
+        "영업시간, 위치, 연락처를 한 번에 안내해드릴게요.",
+        "매장 위치와 영업시간 알려줘",
+    ),
 ]
 
 DEFAULT_AGENT_STATE = {
-    "active_agent_name": "Ready",
-    "active_agent_stage": "무엇을 도와드릴까요?",
-    "active_agent_note": "추천 메뉴, 예약, 주문, 민원 접수를 한 화면에서 도와드릴게요.",
+    "active_agent_name": "",
+    "active_agent_stage": "",
+    "active_agent_note": "",
 }
 
 
@@ -135,10 +147,37 @@ def apply_custom_css() -> None:
             color: var(--ink);
         }
 
+        [data-testid="stMain"],
+        [data-testid="stMainBlockContainer"],
+        [data-testid="stBottomBlockContainer"],
+        [data-testid="stHeader"] {
+            background: transparent !important;
+        }
+
+        [data-testid="stMain"] {
+            height: 100vh;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+        }
+
+        [data-testid="stSidebar"] {
+            background:
+                linear-gradient(180deg, rgba(246, 236, 220, 0.98) 0%, rgba(239, 226, 204, 0.96) 100%)
+                !important;
+            border-right: 1px solid rgba(138, 75, 22, 0.1);
+        }
+
+        [data-testid="stSidebarContent"] {
+            background: transparent !important;
+            padding-top: 1rem;
+            height: 100vh;
+            overflow-y: auto !important;
+        }
+
         .block-container {
-            max-width: 1180px;
+            max-width: 1380px;
             padding-top: 1.2rem;
-            padding-bottom: 2.6rem;
+            padding-bottom: 7.5rem;
         }
 
         h1, h2, h3, h4 {
@@ -152,20 +191,62 @@ def apply_custom_css() -> None:
         }
 
         [data-testid="stChatMessage"] {
-            border: 1px solid rgba(138, 75, 22, 0.08);
-            border-radius: 24px;
-            background: rgba(255, 252, 247, 0.88);
-            box-shadow: 0 18px 50px rgba(89, 54, 19, 0.05);
-            padding: 0.35rem 0.45rem;
+            border: none;
+            background: transparent;
+            box-shadow: none;
+            padding: 0;
+            margin: 0.35rem 0 0.75rem;
+            width: fit-content;
+            max-width: min(74%, 780px);
+            margin-right: auto;
         }
 
         [data-testid="stChatMessageContent"] {
-            padding-top: 0.2rem;
+            padding-top: 0.15rem;
+        }
+
+        [data-testid="stChatMessageAvatar"] {
+            display: none;
+        }
+
+        [data-testid="stChatMessage"] [data-testid="stChatMessageContent"] {
+            border: 1px solid rgba(138, 75, 22, 0.08);
+            border-radius: 24px 24px 24px 10px;
+            background: rgba(255, 252, 247, 0.94);
+            box-shadow: 0 18px 50px rgba(89, 54, 19, 0.05);
+            padding: 0.7rem 0.95rem 0.8rem;
+        }
+
+        [data-stale="true"] {
+            opacity: 1 !important;
+            filter: none !important;
+        }
+
+        [data-testid="stElementContainer"][data-stale="true"] {
+            background: transparent !important;
+        }
+
+        .user-bubble {
+            width: fit-content;
+            max-width: min(70%, 720px);
+            margin: 0.35rem 0 0.75rem auto;
+            padding: 0.8rem 1rem;
+            border: 1px solid rgba(138, 75, 22, 0.08);
+            border-radius: 24px 24px 10px 24px;
+            background: linear-gradient(135deg, rgba(145, 84, 28, 0.96), rgba(120, 63, 15, 0.96));
+            box-shadow: 0 18px 42px rgba(89, 54, 19, 0.14);
+            color: #fffaf4;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
         }
 
         .hero-card,
+        .hero-shell-anchor,
+        .composer-shell-anchor,
+        .feature-shell-anchor,
+        .feature-action-anchor,
         .section-card,
-        .agent-card,
         .trust-card,
         .info-card,
         .notice-card {
@@ -176,17 +257,67 @@ def apply_custom_css() -> None:
         }
 
         .hero-card {
-            padding: 1.6rem 1.7rem;
+            padding: 1.08rem 1.45rem;
             background:
                 radial-gradient(circle at right top, rgba(222, 181, 128, 0.18), transparent 28%),
                 linear-gradient(135deg, rgba(255, 250, 241, 0.98), rgba(245, 232, 211, 0.95));
+        }
+
+        .hero-shell-anchor,
+        .feature-shell-anchor {
+            display: none;
+        }
+
+        [data-testid="stVerticalBlock"]:has(.hero-shell-anchor),
+        [data-testid="stVerticalBlock"]:has(.feature-shell-anchor) {
+            margin-bottom: 1rem;
+        }
+
+        .composer-shell-anchor {
+            display: none;
+        }
+
+        [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) {
+            margin-top: 0.9rem;
+            border: 1px solid var(--line);
+            border-radius: 26px;
+            background: rgba(255, 251, 244, 0.94);
+            box-shadow: 0 20px 45px rgba(89, 54, 19, 0.08);
+            padding: 0.3rem 0.55rem 0.55rem;
+            position: sticky;
+            bottom: 0.85rem;
+            z-index: 20;
+            backdrop-filter: blur(14px);
+        }
+
+        [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) form {
+            margin-bottom: 0;
+        }
+
+        [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) [data-testid="stTextInput"] input {
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
+        [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) [data-testid="stTextInput"] > div,
+        [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) [data-testid="stTextInput"] > div > div {
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
+        [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) [data-testid="stTextInput"] input:focus {
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
         }
 
         .hero-kicker {
             display: inline-flex;
             align-items: center;
             gap: 0.45rem;
-            padding: 0.35rem 0.8rem;
+            padding: 0.28rem 0.72rem;
             border-radius: 999px;
             background: rgba(138, 75, 22, 0.08);
             color: var(--accent);
@@ -196,7 +327,7 @@ def apply_custom_css() -> None:
         }
 
         .hero-title {
-            margin: 0.8rem 0 0.35rem;
+            margin: 0.5rem 0 0.08rem;
             font-size: 3rem;
             line-height: 1.02;
         }
@@ -220,7 +351,30 @@ def apply_custom_css() -> None:
             border: 1px solid rgba(138, 75, 22, 0.12);
             border-radius: 20px;
             background: rgba(255, 255, 255, 0.58);
-            padding: 1rem;
+            padding: 0.76rem 0.82rem;
+        }
+
+        .feature-action-anchor {
+            display: none;
+        }
+
+        [data-testid="stVerticalBlock"]:has(.feature-action-anchor) {
+            border: 1px solid rgba(138, 75, 22, 0.12);
+            border-radius: 22px;
+            background: rgba(255, 253, 249, 0.75);
+            box-shadow: 0 14px 34px rgba(89, 54, 19, 0.05);
+            padding: 0.68rem 0.82rem 0.78rem;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        [data-testid="stVerticalBlock"]:has(.feature-action-anchor) .feature-card {
+            margin-bottom: 0.7rem;
+        }
+
+        [data-testid="stVerticalBlock"]:has(.feature-action-anchor) .stButton {
+            margin-top: auto;
         }
 
         .feature-card strong {
@@ -234,18 +388,6 @@ def apply_custom_css() -> None:
             color: var(--subtle);
             font-size: 0.92rem;
             line-height: 1.5;
-        }
-
-        .agent-card {
-            padding: 1rem 1.15rem;
-            margin: 0.8rem 0 1rem;
-        }
-
-        .agent-row {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 1rem;
         }
 
         .agent-badge,
@@ -301,17 +443,15 @@ def apply_custom_css() -> None:
             color: #7f4e16;
         }
 
-        .agent-title {
-            margin: 0.55rem 0 0.2rem;
-            font-size: 1.22rem;
-            font-weight: 700;
-            color: var(--ink);
-        }
-
-        .agent-copy {
-            margin: 0;
+        .agent-inline-status {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            margin: 0.15rem 0 0.9rem;
+            padding: 0.1rem 0.1rem 0.35rem;
             color: var(--subtle);
-            line-height: 1.55;
+            font-size: 0.95rem;
+            line-height: 1.45;
         }
 
         .section-card,
@@ -386,6 +526,15 @@ def apply_custom_css() -> None:
             font-weight: 600;
         }
 
+        .progress-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            margin: 0.4rem 0 0.6rem;
+            color: var(--subtle);
+            font-size: 0.9rem;
+        }
+
         .trust-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -453,15 +602,68 @@ def init_session_state() -> None:
     if "session" not in st.session_state:
         st.session_state["session"] = SQLiteSession(
             "restaurant-bot",
-            "restaurant-bot-memory.db",
+            SESSION_DB_PATH,
         )
 
     for key, value in DEFAULT_AGENT_STATE.items():
         st.session_state.setdefault(key, value)
 
     st.session_state.setdefault("handoff_messages", [])
+    st.session_state.setdefault("handoff_target_name", "")
+    st.session_state.setdefault("handoff_status_message", "")
     st.session_state.setdefault("starter_prompt", None)
+    st.session_state.setdefault("pending_user_prompt", None)
     st.session_state.setdefault("last_guardrail_type", None)
+    st.session_state["message_agent_map"] = load_message_agent_map()
+
+
+def _with_agent_store(callback):
+    connection = sqlite3.connect(SESSION_DB_PATH)
+    try:
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS assistant_message_agents (
+                message_id TEXT PRIMARY KEY,
+                agent_name TEXT NOT NULL
+            )
+            """
+        )
+        result = callback(connection)
+        connection.commit()
+        return result
+    finally:
+        connection.close()
+
+
+def load_message_agent_map() -> dict[str, str]:
+    def _load(connection):
+        rows = connection.execute(
+            "SELECT message_id, agent_name FROM assistant_message_agents"
+        ).fetchall()
+        return {message_id: agent_name for message_id, agent_name in rows}
+
+    return _with_agent_store(_load)
+
+
+def persist_message_agent_map(message_id: str, agent_name: str) -> None:
+    def _persist(connection):
+        connection.execute(
+            """
+            INSERT INTO assistant_message_agents (message_id, agent_name)
+            VALUES (?, ?)
+            ON CONFLICT(message_id) DO UPDATE SET agent_name = excluded.agent_name
+            """,
+            (message_id, agent_name),
+        )
+
+    _with_agent_store(_persist)
+
+
+def clear_message_agent_map() -> None:
+    def _clear(connection):
+        connection.execute("DELETE FROM assistant_message_agents")
+
+    _with_agent_store(_clear)
 
 
 def agent_theme(name: str) -> dict[str, str]:
@@ -478,19 +680,18 @@ def agent_summary_html(name: str, stage: str, note: str) -> str:
     theme = agent_theme(name)
     tone = theme["tone"]
     return f"""
-    <div class="agent-card tone-{tone}">
-      <div class="agent-row">
-        <div>
-          <span class="agent-badge badge-{tone}">{theme["label"]}</span>
-          <div class="agent-title">{stage}</div>
-          <p class="agent-copy">{note}</p>
-        </div>
-      </div>
+    <div class="agent-inline-status">
+      <span class="agent-badge badge-{tone}">{theme["label"]}</span>
+      <span>{stage}</span>
     </div>
     """
 
 
 def render_agent_summary(target) -> None:
+    if not st.session_state["active_agent_name"]:
+        target.empty()
+        return
+
     target.markdown(
         agent_summary_html(
             st.session_state["active_agent_name"],
@@ -501,12 +702,54 @@ def render_agent_summary(target) -> None:
     )
 
 
+def render_agent_summaries(targets) -> None:
+    for target in targets:
+        render_agent_summary(target)
+
+
 def render_inline_agent_badge(target, name: str) -> None:
     theme = agent_theme(name)
     target.markdown(
         f'<span class="inline-badge badge-{theme["tone"]}">{theme["label"]}</span>',
         unsafe_allow_html=True,
     )
+
+
+def _message_id_from_payload(message: dict) -> str | None:
+    if isinstance(message.get("id"), str):
+        return message["id"]
+
+    raw_item = message.get("raw_item")
+    if isinstance(raw_item, dict) and isinstance(raw_item.get("id"), str):
+        return raw_item["id"]
+
+    return None
+
+
+def _remember_agent_for_message(message_id: str | None, agent_name: str) -> None:
+    if not message_id:
+        return
+
+    st.session_state["message_agent_map"][message_id] = agent_name
+    persist_message_agent_map(message_id, agent_name)
+
+
+async def _tag_latest_assistant_message(
+    session: SQLiteSession,
+    agent_name: str,
+) -> None:
+    messages = await session.get_items()
+
+    for message in reversed(messages):
+        if not isinstance(message, dict):
+            continue
+
+        if message.get("role") == "assistant" or message.get("type") in {
+            "message",
+            "message_output_item",
+        }:
+            _remember_agent_for_message(_message_id_from_payload(message), agent_name)
+            return
 
 
 def notice_card_html(title: str, message: str) -> str:
@@ -518,54 +761,56 @@ def notice_card_html(title: str, message: str) -> str:
     """
 
 
-def render_hero() -> None:
-    st.markdown(
-        """
-        <div class="hero-card">
-          <span class="hero-kicker">DODAM RESTAURANT · AI HOST</span>
-          <h1 class="hero-title">도담 레스토랑 챗봇</h1>
-          <p class="hero-subtitle">
-            메뉴 추천부터 주문, 예약, 매장 안내, 불만 접수까지 한 화면에서 이어지는
-            서비스형 레스토랑 챗 경험을 제공합니다. 현재 어떤 담당이 응답 중인지
-            항상 확인할 수 있도록 구성했습니다.
-          </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+def progress_note_html(message: str) -> str:
+    return f'<div class="progress-note">• {message}</div>'
 
-    action_columns = st.columns(len(QUICK_ACTIONS))
-    for idx, (prompt, label) in enumerate(QUICK_ACTIONS):
-        if action_columns[idx].button(
-            label,
-            key=f"hero-action-{idx}",
-            use_container_width=True,
-        ):
-            st.session_state["starter_prompt"] = prompt
+
+def render_hero() -> None:
+    hero_shell = st.container()
+    with hero_shell:
+        st.markdown('<div class="hero-shell-anchor"></div>', unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class="hero-card">
+              <span class="hero-kicker">DODAM RESTAURANT · AI HOST</span>
+              <h1 class="hero-title">도담 레스토랑 챗봇</h1>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 def render_feature_strip() -> None:
-    cards = "".join(
-        f"""
-        <div class="feature-card">
-          <strong>{title}</strong>
-          <span>{description}</span>
-        </div>
-        """
-        for title, description in FEATURE_CARDS
-    )
-    st.markdown(
-        f"""
-        <div class="section-card">
-          <div class="section-heading">
-            <h3>핵심 이용 흐름</h3>
-            <p>추천 대화와 specialist handoff를 중심으로 빠른 액션을 설계했습니다.</p>
-          </div>
-          <div class="feature-grid">{cards}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    feature_shell = st.container()
+    with feature_shell:
+        st.markdown('<div class="feature-shell-anchor"></div>', unsafe_allow_html=True)
+        top_row = FEATURE_ACTIONS[:3]
+        bottom_row = FEATURE_ACTIONS[3:]
+
+        def _render_action_cell(title: str, description: str, prompt: str, key: str) -> None:
+            st.markdown('<div class="feature-action-anchor"></div>', unsafe_allow_html=True)
+            st.markdown(
+                f"""
+                <div class="feature-card">
+                  <strong>{title}</strong>
+                  <span>{description}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            if st.button(title, key=key, use_container_width=True):
+                st.session_state["starter_prompt"] = prompt
+
+        top_columns = st.columns(3, gap="medium")
+        for idx, (title, description, prompt) in enumerate(top_row):
+            with top_columns[idx]:
+                _render_action_cell(title, description, prompt, f"feature-action-top-{idx}")
+
+        spacer_left, mid_left, mid_right, spacer_right = st.columns([0.45, 1, 1, 0.45], gap="medium")
+        bottom_columns = [mid_left, mid_right]
+        for idx, (title, description, prompt) in enumerate(bottom_row):
+            with bottom_columns[idx]:
+                _render_action_cell(title, description, prompt, f"feature-action-bottom-{idx}")
 
 
 def render_quick_prompt_buttons(prefix: str, prompts: list[tuple[str, str]]) -> None:
@@ -596,6 +841,36 @@ def write_message_parts(content) -> None:
             st.write(part["text"].replace("$", "\\$"))
 
 
+def text_from_message_content(content) -> str:
+    if isinstance(content, str):
+        return content
+
+    if not isinstance(content, list):
+        return ""
+
+    chunks: list[str] = []
+    for part in content:
+        if not isinstance(part, dict):
+            continue
+        if part.get("type") in {"input_text", "output_text"} and isinstance(
+            part.get("text"), str
+        ):
+            chunks.append(part["text"])
+
+    return "\n".join(chunk for chunk in chunks if chunk)
+
+
+def render_user_bubble(content) -> None:
+    text = text_from_message_content(content)
+    if not text:
+        return
+
+    st.markdown(
+        f'<div class="user-bubble">{html.escape(text)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def get_raw_item(item):
     raw_item = item.get("raw_item")
     return raw_item if isinstance(raw_item, dict) else item
@@ -610,13 +885,26 @@ async def paint_history(session: SQLiteSession) -> int:
             continue
 
         if "role" in message:
-            with st.chat_message(message["role"]):
-                write_message_parts(message.get("content"))
+            if message["role"] == "assistant":
+                with st.chat_message("assistant"):
+                    agent_name = st.session_state["message_agent_map"].get(
+                        _message_id_from_payload(message),
+                        "Assistant",
+                    )
+                    render_inline_agent_badge(st, agent_name)
+                    write_message_parts(message.get("content"))
+            elif message["role"] == "user":
+                render_user_bubble(message.get("content"))
             rendered += 1
             continue
 
         if message.get("type") == "message":
             with st.chat_message("assistant"):
+                agent_name = st.session_state["message_agent_map"].get(
+                    _message_id_from_payload(message),
+                    "Assistant",
+                )
+                render_inline_agent_badge(st, agent_name)
                 write_message_parts(message.get("content", []))
             rendered += 1
             continue
@@ -624,109 +912,156 @@ async def paint_history(session: SQLiteSession) -> int:
         if message.get("type") == "message_output_item":
             raw_item = get_raw_item(message)
             with st.chat_message("assistant"):
+                agent_name = st.session_state["message_agent_map"].get(
+                    _message_id_from_payload(message),
+                    "Assistant",
+                )
+                render_inline_agent_badge(st, agent_name)
                 write_message_parts(raw_item.get("content", []))
             rendered += 1
 
     return rendered
 
 
-def render_welcome_state() -> None:
-    with st.chat_message("assistant"):
-        render_inline_agent_badge(st, "Ready")
-        st.markdown(
-            """
-            <div class="welcome-card">
-              <h4>도담 레스토랑에 오신 것을 환영합니다.</h4>
-              <p>
-                원하는 분위기나 식사 목적만 알려주셔도 추천 메뉴를 골라드리고,
-                바로 주문이나 예약까지 이어서 도와드릴 수 있어요.
-              </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        render_quick_prompt_buttons("welcome", WELCOME_ACTIONS)
-
-
-def render_sidebar(context: RestaurantContext, session: SQLiteSession) -> None:
+def render_sidebar(context: RestaurantContext, session: SQLiteSession):
     with st.sidebar:
-        st.markdown(
-            """
-            <div class="info-card">
-              <div class="section-heading">
-                <h3>매장 정보</h3>
-                <p>위치, 영업시간, 빠른 안내를 한곳에 모았습니다.</p>
-              </div>
-              <div class="store-meta">
-                <div class="store-item">
-                  <strong>지점</strong>
-                  <span>Nomad Kitchen · Seoul Gangnam</span>
-                </div>
-                <div class="store-item">
-                  <strong>영업시간</strong>
-                  <span>매일 11:30 - 22:00 · 브레이크 15:00 - 17:00</span>
-                </div>
-                <div class="store-item">
-                  <strong>연락처</strong>
-                  <span>02-555-0199</span>
-                </div>
-                <div class="store-item">
-                  <strong>추천 안내</strong>
-                  <span>채식, 알레르기, 예약, 민원 케어까지 한 흐름으로 이어집니다.</span>
-                </div>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.write("")
-        if st.button("영업시간 묻기", key="sidebar-hours", use_container_width=True):
-            st.session_state["starter_prompt"] = "영업시간과 브레이크 타임 알려줘"
-        if st.button("위치 안내 받기", key="sidebar-location", use_container_width=True):
-            st.session_state["starter_prompt"] = "매장 위치와 전화번호 알려줘"
-        if st.button("민원 접수 시작", key="sidebar-complaint", use_container_width=True):
-            st.session_state["starter_prompt"] = "주문한 음식이 너무 늦게 나왔어"
-
-        st.write("")
-        st.caption(
-            f"{context.restaurant_name} {context.branch_name} · 세션 메모리는 현재 브라우저 세션 안에서 유지됩니다."
-        )
+        sidebar_summary_placeholder = st.empty()
+        render_agent_summary(sidebar_summary_placeholder)
         if st.button("Reset memory", key="reset-memory", use_container_width=True):
             asyncio.run(session.clear_session())
+            clear_message_agent_map()
             set_agent_state(
-                "Ready",
+                "",
                 "대화를 초기화했습니다.",
-                "새로운 메뉴 추천, 주문, 예약, 민원 접수를 다시 시작할 수 있습니다.",
+                "",
             )
             st.session_state["handoff_messages"] = []
+            st.session_state["handoff_target_name"] = ""
+            st.session_state["handoff_status_message"] = ""
             st.session_state["last_guardrail_type"] = None
+            st.session_state["message_agent_map"] = {}
             st.rerun()
+    return sidebar_summary_placeholder
 
 
-def render_trust_section() -> None:
-    pills = "".join(
-        f"""
-        <div class="trust-pill">
-          <strong>{title}</strong>
-          <span>{description}</span>
-        </div>
+def render_auto_scroll_bridge() -> None:
+    components.html(
         """
-        for title, description in TRUST_ITEMS
+        <script>
+        const parentWindow = window.parent;
+        const parentDocument = parentWindow.document;
+        const stickKey = "restaurantBotStickToBottom";
+
+        try {
+          parentWindow.sessionStorage.setItem(stickKey, "1");
+          if ("scrollRestoration" in parentWindow.history) {
+            parentWindow.history.scrollRestoration = "manual";
+          }
+        } catch (e) {}
+
+        const getMainScroller = () =>
+          parentDocument.querySelector('[data-testid="stMain"]') ||
+          parentDocument.querySelector('section.main');
+
+        const getSidebarScroller = () =>
+          parentDocument.querySelector('[data-testid="stSidebar"] [data-testid="stSidebarContent"]') ||
+          parentDocument.querySelector('[data-testid="stSidebar"]');
+
+        const getComposerAnchor = () =>
+          parentDocument.querySelector('.composer-shell-anchor');
+
+        const scrollNodeToBottom = node => {
+          if (!node) return;
+
+          if (typeof node.scrollTo === "function") {
+            node.scrollTo({ top: node.scrollHeight, behavior: "auto" });
+          } else {
+            node.scrollTop = node.scrollHeight;
+          }
+        };
+
+        const scrollToLatest = () => {
+          scrollNodeToBottom(getMainScroller());
+          scrollNodeToBottom(getSidebarScroller());
+          const composerAnchor = getComposerAnchor();
+          if (composerAnchor) {
+            composerAnchor.scrollIntoView({ behavior: "auto", block: "end" });
+          } else {
+            parentWindow.scrollTo({
+              top: parentDocument.body.scrollHeight,
+              behavior: "auto",
+            });
+          }
+        };
+
+        const scheduleScroll = () => {
+          clearTimeout(parentWindow.__restaurantBotScrollTimer);
+          parentWindow.__restaurantBotScrollTimer = setTimeout(() => {
+            scrollToLatest();
+            parentWindow.requestAnimationFrame(scrollToLatest);
+          }, 30);
+        };
+
+        const reinforceScroll = () => {
+          let attempts = 0;
+          clearInterval(parentWindow.__restaurantBotScrollInterval);
+          parentWindow.__restaurantBotScrollInterval = setInterval(() => {
+            scrollToLatest();
+            attempts += 1;
+            if (attempts >= 18) {
+              clearInterval(parentWindow.__restaurantBotScrollInterval);
+            }
+          }, 120);
+        };
+
+        scheduleScroll();
+        reinforceScroll();
+
+        parentWindow.addEventListener("load", scheduleScroll, { once: true });
+        parentWindow.addEventListener("pageshow", scheduleScroll, { once: true });
+
+        if (!parentWindow.__restaurantBotScrollObserver) {
+          const appRoot =
+            parentDocument.querySelector('.stApp') ||
+            parentDocument.body;
+
+          parentWindow.__restaurantBotScrollObserver = new MutationObserver(() => {
+            scheduleScroll();
+            reinforceScroll();
+          });
+
+          parentWindow.__restaurantBotScrollObserver.observe(appRoot, {
+            childList: true,
+            subtree: true,
+            characterData: true,
+          });
+        }
+        </script>
+        """,
+        height=0,
+        width=0,
     )
 
-    st.markdown(
-        f"""
-        <div class="trust-card">
-          <div class="section-heading">
-            <h3>안심하고 이어지는 응답 구조</h3>
-            <p>현재 담당 표시, 가드레일, 세션 메모리를 함께 드러내는 서비스형 챗 UI를 목표로 합니다.</p>
-          </div>
-          <div class="trust-grid">{pills}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+
+def render_chat_composer() -> None:
+    composer_shell = st.container()
+    with composer_shell:
+        st.markdown('<div class="composer-shell-anchor"></div>', unsafe_allow_html=True)
+        with st.form("chat-composer-form", clear_on_submit=True):
+            input_col, submit_col = st.columns([7.5, 1.3], gap="small")
+            draft = input_col.text_input(
+                "메시지 입력",
+                placeholder="메뉴, 주문, 예약, 불만 접수에 대해 물어보세요",
+                label_visibility="collapsed",
+            )
+            submitted = submit_col.form_submit_button(
+                "보내기",
+                use_container_width=True,
+            )
+
+    if submitted and draft.strip():
+        st.session_state["pending_user_prompt"] = draft.strip()
+        st.rerun()
 
 
 def _handoff_target_name(item) -> str | None:
@@ -758,6 +1093,16 @@ def _output_guardrail_message(exc: OutputGuardrailTripwireTriggered) -> str:
     )
 
 
+def _api_error_message(exc: APIError) -> str:
+    request_id = getattr(exc, "request_id", None)
+    suffix = f" 요청 ID: {request_id}" if request_id else ""
+    return (
+        "현재 AI 응답 처리 중 일시적인 오류가 발생했습니다. "
+        "잠시 후 다시 시도해 주세요."
+        f"{suffix}"
+    )
+
+
 def _handoff_stage_message(name: str) -> str:
     theme = agent_theme(name)
     return theme["headline"]
@@ -766,36 +1111,33 @@ def _handoff_stage_message(name: str) -> str:
 async def run_agent(
     message: str,
     session: SQLiteSession,
-    summary_placeholder,
+    summary_placeholders,
 ) -> None:
     context = RestaurantContext()
+    st.session_state["handoff_target_name"] = ""
+    st.session_state["handoff_status_message"] = ""
+
     set_agent_state(
         "Triage Agent",
         "요청을 분류하고 있습니다.",
         "가장 적합한 담당 에이전트로 연결하는 중입니다.",
     )
-    render_agent_summary(summary_placeholder)
+    render_agent_summaries(summary_placeholders)
 
     with st.chat_message("assistant"):
         badge_placeholder = st.empty()
-        note_placeholder = st.empty()
         handoff_placeholder = st.empty()
+        progress_placeholder = st.empty()
         text_placeholder = st.empty()
-        status_container = st.status(
-            "Triage Agent가 요청을 파악하고 있습니다...",
-            expanded=False,
-        )
 
         render_inline_agent_badge(badge_placeholder, "Triage Agent")
-        note_placeholder.markdown(
-            notice_card_html(
-                "현재 단계",
-                "요청을 파악한 뒤 메뉴, 주문, 예약, 민원 담당 중 가장 적합한 경로로 이어집니다.",
-            ),
+        progress_placeholder.markdown(
+            progress_note_html("요청을 분류하고 있습니다..."),
             unsafe_allow_html=True,
         )
 
         response = ""
+
         try:
             stream = Runner.run_streamed(
                 triage_agent,
@@ -805,40 +1147,59 @@ async def run_agent(
             )
 
             async for event in stream.stream_events():
+                handoff_target_name = st.session_state.get("handoff_target_name", "")
+                if handoff_target_name and handoff_target_name != st.session_state["active_agent_name"]:
+                    set_agent_state(
+                        handoff_target_name,
+                        _handoff_stage_message(handoff_target_name),
+                        agent_theme(handoff_target_name)["description"],
+                    )
+                    render_agent_summaries(summary_placeholders)
+                    render_inline_agent_badge(badge_placeholder, handoff_target_name)
+                    handoff_placeholder.markdown(
+                        f'<div class="handoff-note">{st.session_state.get("handoff_status_message") or HANDOFF_MESSAGES.get(handoff_target_name, f"{handoff_target_name}로 연결합니다...")}</div>',
+                        unsafe_allow_html=True,
+                    )
+                    progress_placeholder.markdown(
+                        progress_note_html(
+                            f"{agent_theme(handoff_target_name)['label']}가 응답을 이어받았습니다."
+                        ),
+                        unsafe_allow_html=True,
+                    )
+
                 if event.type == "raw_response_event":
                     if event.data.type == "response.output_text.delta":
                         response += event.data.delta
                         text_placeholder.write(response.replace("$", "\\$"))
                     elif event.data.type == "response.completed":
-                        current_agent = st.session_state["active_agent_name"]
-                        status_container.update(
-                            label=f"{agent_theme(current_agent)['label']} 응답 완료",
-                            state="complete",
+                        current_agent = (
+                            st.session_state.get("handoff_target_name")
+                            or st.session_state["active_agent_name"]
+                            or "Triage Agent"
                         )
-                        set_agent_state(
-                            current_agent,
-                            "응답이 완료되었습니다.",
-                            "후속 질문이나 다음 액션도 바로 이어서 도와드릴게요.",
-                        )
-                        render_agent_summary(summary_placeholder)
+                        await _tag_latest_assistant_message(session, current_agent)
+                        progress_placeholder.empty()
                 elif event.type == "run_item_stream_event":
                     if event.name == "handoff_occured":
                         target_name = _handoff_target_name(event.item)
                         if target_name:
+                            st.session_state["handoff_target_name"] = target_name
                             set_agent_state(
                                 target_name,
                                 _handoff_stage_message(target_name),
                                 agent_theme(target_name)["description"],
                             )
-                            render_agent_summary(summary_placeholder)
+                            render_agent_summaries(summary_placeholders)
                             render_inline_agent_badge(badge_placeholder, target_name)
                             handoff_placeholder.markdown(
                                 f'<div class="handoff-note">{HANDOFF_MESSAGES.get(target_name, f"{target_name}로 연결합니다...")}</div>',
                                 unsafe_allow_html=True,
                             )
-                            status_container.update(
-                                label=f"{agent_theme(target_name)['label']}가 응답을 이어받았습니다.",
-                                state="running",
+                            progress_placeholder.markdown(
+                                progress_note_html(
+                                    f"{agent_theme(target_name)['label']}가 응답을 이어받았습니다."
+                                ),
+                                unsafe_allow_html=True,
                             )
         except InputGuardrailTripwireTriggered as exc:
             safe_reply = _input_guardrail_message(exc)
@@ -847,7 +1208,7 @@ async def run_agent(
                 "입력 가드레일이 작동했습니다.",
                 "메뉴, 주문, 예약, 불만 접수 관련 요청으로 바꿔 말씀해 주시면 계속 도와드릴게요.",
             )
-            render_agent_summary(summary_placeholder)
+            render_agent_summaries(summary_placeholders)
             render_inline_agent_badge(badge_placeholder, "Input Guardrail")
             handoff_placeholder.markdown(
                 notice_card_html(
@@ -856,9 +1217,9 @@ async def run_agent(
                 ),
                 unsafe_allow_html=True,
             )
+            progress_placeholder.empty()
             text_placeholder.write(safe_reply)
             st.session_state["last_guardrail_type"] = "input"
-            status_container.update(label="입력 가드레일 작동", state="error")
         except OutputGuardrailTripwireTriggered as exc:
             safe_reply = _output_guardrail_message(exc)
             set_agent_state(
@@ -866,7 +1227,7 @@ async def run_agent(
                 "출력 가드레일이 응답을 조정했습니다.",
                 "내부 정보 노출이나 부적절한 표현을 막기 위해 안전한 응답만 표시합니다.",
             )
-            render_agent_summary(summary_placeholder)
+            render_agent_summaries(summary_placeholders)
             render_inline_agent_badge(badge_placeholder, "Output Guardrail")
             handoff_placeholder.markdown(
                 notice_card_html(
@@ -875,9 +1236,21 @@ async def run_agent(
                 ),
                 unsafe_allow_html=True,
             )
+            progress_placeholder.empty()
             text_placeholder.write(safe_reply)
             st.session_state["last_guardrail_type"] = "output"
-            status_container.update(label="출력 가드레일 작동", state="error")
+        except APIError as exc:
+            set_agent_state(
+                st.session_state.get("handoff_target_name") or "Triage Agent",
+                "일시적인 API 오류가 발생했습니다.",
+                "잠시 후 다시 시도해 주세요.",
+            )
+            render_agent_summaries(summary_placeholders)
+            current_agent = st.session_state.get("handoff_target_name") or "Triage Agent"
+            render_inline_agent_badge(badge_placeholder, current_agent)
+            handoff_placeholder.empty()
+            progress_placeholder.empty()
+            text_placeholder.write(_api_error_message(exc))
 
 
 try:
@@ -894,25 +1267,26 @@ context = RestaurantContext()
 session = st.session_state["session"]
 
 render_hero()
-st.write("")
 render_feature_strip()
-render_sidebar(context, session)
+sidebar_summary_placeholder = render_sidebar(context, session)
 
 agent_summary_placeholder = st.empty()
 render_agent_summary(agent_summary_placeholder)
-
 history_count = asyncio.run(paint_history(session))
-if history_count == 0:
-    render_welcome_state()
 
 queued_prompt = st.session_state.pop("starter_prompt", None)
-prompt = st.chat_input("메뉴, 주문, 예약, 불만 접수에 대해 물어보세요")
-user_prompt = prompt or queued_prompt
+pending_prompt = st.session_state.pop("pending_user_prompt", None)
+user_prompt = pending_prompt or queued_prompt
 
 if user_prompt:
-    with st.chat_message("user"):
-        st.write(user_prompt)
-    asyncio.run(run_agent(user_prompt, session, agent_summary_placeholder))
+    render_user_bubble(user_prompt)
+    asyncio.run(
+        run_agent(
+        user_prompt,
+        session,
+        [agent_summary_placeholder, sidebar_summary_placeholder],
+        )
+    )
 
-st.write("")
-render_trust_section()
+render_chat_composer()
+render_auto_scroll_bridge()

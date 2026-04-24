@@ -87,6 +87,7 @@ def dynamic_triage_instructions(
     - ingredients, prices, portion questions
     - vegetarian or vegan options
     - allergy information
+    - recommendation requests that mention allergies, dietary restrictions, or companions with food restrictions
 
     Route to Order Agent for:
     - placing an order
@@ -107,6 +108,9 @@ def dynamic_triage_instructions(
     Rules:
     - If the user is unhappy or complaining, prioritize Complaints Agent.
     - If routing is clear, hand off immediately.
+    - If the domain is clear but the specialist still needs missing details, hand off anyway.
+    - Do not ask follow-up questions that belong to the specialist.
+    - For allergy-aware or diet-aware menu recommendations, always hand off to Menu Agent first.
     - Do not answer specialist questions yourself once the route is clear.
     - If unclear, ask one short clarifying question.
     - If the user changes topic mid-conversation, route based on the newest request.
@@ -138,6 +142,8 @@ def handle_handoff(
 ):
     sidebar_message = format_handoff_message(input_data)
     status_message = format_handoff_status(input_data)
+    st.session_state["handoff_target_name"] = input_data.to_agent_name
+    st.session_state["handoff_status_message"] = status_message
 
     with st.sidebar:
         st.write(sidebar_message)
