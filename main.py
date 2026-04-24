@@ -115,6 +115,11 @@ FEATURE_ACTIONS = [
         "영업시간, 위치, 연락처를 한 번에 안내해드릴게요.",
         "매장 위치와 영업시간 알려줘",
     ),
+    (
+        "직원 연결",
+        "사람의 확인이 필요한 요청을 정리해드릴게요.",
+        "직원에게 연결하고 싶어요",
+    ),
 ]
 
 DEFAULT_AGENT_STATE = {
@@ -129,21 +134,23 @@ def apply_custom_css() -> None:
         """
         <style>
         :root {
-            --bg: #fbf5eb;
-            --panel: rgba(255, 251, 244, 0.92);
-            --line: #e6d5bc;
-            --ink: #2b180a;
-            --subtle: #7d5c3b;
-            --accent: #8a4b16;
-            --accent-soft: #efe1cc;
-            --success: #356a3a;
-            --alert: #8c4f24;
+            --bg: #f7f5f0;
+            --panel: rgba(255, 255, 255, 0.96);
+            --line: #ded8cc;
+            --ink: #25211b;
+            --subtle: #70685e;
+            --accent: #7d4d23;
+            --accent-strong: #553113;
+            --accent-soft: #efe3d4;
+            --success: #426653;
+            --alert: #9a4d2e;
+            --slate: #4d5b68;
+            --surface: rgba(255, 255, 255, 0.97);
         }
 
         .stApp {
             background:
-                radial-gradient(circle at top left, rgba(255, 244, 229, 0.95), transparent 34%),
-                linear-gradient(180deg, #fffaf1 0%, #f8f0e2 100%);
+                linear-gradient(180deg, #f9f7f2 0%, #f2eee6 100%);
             color: var(--ink);
         }
 
@@ -161,10 +168,10 @@ def apply_custom_css() -> None:
         }
 
         [data-testid="stMainBlockContainer"] {
-            background: rgba(255, 255, 255, 0.97) !important;
+            background: rgba(255, 255, 255, 0.96) !important;
             border: 1px solid rgba(35, 35, 35, 0.06);
-            border-radius: 34px;
-            box-shadow: 0 24px 60px rgba(20, 20, 20, 0.06);
+            border-radius: 18px;
+            box-shadow: 0 18px 40px rgba(20, 20, 20, 0.05);
             padding: 0.9rem 1rem 7rem !important;
             margin-top: 0.35rem;
             margin-bottom: 1rem;
@@ -193,7 +200,7 @@ def apply_custom_css() -> None:
         h1, h2, h3, h4 {
             color: var(--ink);
             font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
-            letter-spacing: -0.02em;
+            letter-spacing: 0;
         }
 
         p, li, label, [data-testid="stMarkdownContainer"] {
@@ -221,8 +228,8 @@ def apply_custom_css() -> None:
 
         [data-testid="stChatMessage"] [data-testid="stChatMessageContent"] {
             border: 1px solid rgba(36, 36, 36, 0.08);
-            border-radius: 24px 24px 24px 10px;
-            background: #f4f4f7;
+            border-radius: 14px 14px 14px 6px;
+            background: #f5f3ee;
             box-shadow: none;
             padding: 0.72rem 0.96rem 0.82rem;
         }
@@ -242,44 +249,29 @@ def apply_custom_css() -> None:
             margin: 0.35rem 0 0.75rem auto;
             padding: 0.8rem 1rem;
             border: none;
-            border-radius: 24px 24px 10px 24px;
-            background: linear-gradient(135deg, #4f5bd5 0%, #6a4ef6 52%, #8a3ab9 100%);
-            box-shadow: 0 10px 26px rgba(86, 72, 180, 0.18);
+            border-radius: 14px 14px 6px 14px;
+            background: #5f3b1b;
+            box-shadow: 0 8px 18px rgba(95, 59, 27, 0.14);
             color: #ffffff;
             line-height: 1.6;
             white-space: pre-wrap;
             word-break: break-word;
         }
 
-        .hero-card,
-        .hero-shell-anchor,
         .composer-shell-anchor,
         .feature-shell-anchor,
         .feature-action-anchor,
-        .section-card,
-        .trust-card,
-        .info-card,
         .notice-card {
             border: 1px solid var(--line);
-            border-radius: 28px;
+            border-radius: 12px;
             background: var(--panel);
-            box-shadow: 0 24px 60px rgba(107, 68, 26, 0.08);
+            box-shadow: 0 12px 28px rgba(39, 34, 28, 0.05);
         }
 
-        .hero-card {
-            padding: 0.15rem 0 0.55rem;
-            border: none;
-            border-radius: 0;
-            background: transparent;
-            box-shadow: none;
-        }
-
-        .hero-shell-anchor,
         .feature-shell-anchor {
             display: none;
         }
 
-        [data-testid="stVerticalBlock"]:has(.hero-shell-anchor),
         [data-testid="stVerticalBlock"]:has(.feature-shell-anchor) {
             margin-bottom: 0.7rem;
         }
@@ -306,7 +298,7 @@ def apply_custom_css() -> None:
             padding: 0.34rem 0.4rem;
             border: 1px solid rgba(24, 24, 24, 0.1);
             border-radius: 999px;
-            background: rgba(255, 255, 255, 0.98);
+            background: var(--surface);
             box-shadow: 0 10px 30px rgba(24, 24, 24, 0.08);
         }
 
@@ -339,7 +331,7 @@ def apply_custom_css() -> None:
             min-height: 2.5rem;
             border-radius: 999px;
             border: none;
-            background: #0095f6;
+            background: var(--accent-strong);
             color: #ffffff;
             box-shadow: none;
         }
@@ -347,70 +339,77 @@ def apply_custom_css() -> None:
         [data-testid="stVerticalBlock"]:has(.composer-shell-anchor) .stButton > button:hover {
             border: none;
             color: #ffffff;
-            background: #1877f2;
+            background: var(--accent);
         }
 
-        .dm-header {
+        .brand-card {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-            padding-bottom: 0.8rem;
-            border-bottom: 1px solid rgba(24, 24, 24, 0.08);
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            padding: 0.9rem;
+            border: 1px solid rgba(77, 91, 104, 0.12);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.72);
+            box-shadow: none;
         }
 
-        .dm-brand {
+        .brand-copy {
             display: flex;
             align-items: center;
             gap: 0.85rem;
+            min-width: 0;
         }
 
-        .dm-logo {
+        .brand-mark {
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 3rem;
-            height: 3rem;
-            display: inline-flex;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #8a4b16 0%, #b97536 100%);
+            width: 2.6rem;
+            height: 2.6rem;
+            border-radius: 10px;
+            background: #6b4120;
             color: #fffdf8;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 700;
+            flex: 0 0 auto;
         }
 
-        .dm-name {
+        .brand-name {
             display: block;
-            color: #111111;
-            font-size: 1.15rem;
+            color: var(--ink);
+            font-size: 1.08rem;
             font-weight: 700;
             line-height: 1.2;
+            letter-spacing: 0;
         }
 
-        .dm-meta {
-            display: block;
-            margin-top: 0.16rem;
-            color: #6f6f78;
-            font-size: 0.92rem;
-            line-height: 1.35;
+        .brand-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin-top: 0.35rem;
         }
 
-        .dm-social {
+        .brand-pill {
             display: inline-flex;
             align-items: center;
-            gap: 0.45rem;
-            padding: 0.45rem 0.82rem;
+            gap: 0.35rem;
+            padding: 0.35rem 0.65rem;
             border-radius: 999px;
-            background: #f5f5f7;
-            color: #1f1f24;
-            font-size: 0.88rem;
+            border: 1px solid rgba(77, 91, 104, 0.14);
+            background: rgba(255, 255, 255, 0.75);
+            color: var(--subtle);
+            font-size: 0.82rem;
             font-weight: 600;
         }
 
         .feature-card {
             border: none;
-            border-radius: 18px;
-            background: #f7f7f8;
-            padding: 0.68rem 0.78rem;
+            border-radius: 10px;
+            background: transparent;
+            padding: 0;
         }
 
         .feature-action-anchor {
@@ -418,11 +417,11 @@ def apply_custom_css() -> None:
         }
 
         [data-testid="stVerticalBlock"]:has(.feature-action-anchor) {
-            border: 1px solid rgba(24, 24, 24, 0.08);
-            border-radius: 20px;
-            background: #ffffff;
+            border: 1px solid rgba(24, 24, 24, 0.09);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.92);
             box-shadow: none;
-            padding: 0.58rem 0.68rem 0.66rem;
+            padding: 0.7rem;
             height: 100%;
             display: flex;
             flex-direction: column;
@@ -437,11 +436,11 @@ def apply_custom_css() -> None:
         }
 
         [data-testid="stVerticalBlock"]:has(.feature-action-anchor) .stButton > button {
-            min-height: 2.55rem;
-            border-radius: 999px;
-            border: 1px solid rgba(24, 24, 24, 0.08);
-            background: #ffffff;
-            color: #111111;
+            min-height: 2.25rem;
+            border-radius: 8px;
+            border: 1px solid rgba(77, 91, 104, 0.14);
+            background: #f7f7f5;
+            color: var(--ink);
             box-shadow: none;
         }
 
@@ -453,15 +452,69 @@ def apply_custom_css() -> None:
 
         .feature-card strong {
             display: block;
-            margin-bottom: 0.22rem;
+            margin-bottom: 0.24rem;
             color: #151515;
-            font-size: 0.95rem;
+            font-size: 0.92rem;
         }
 
         .feature-card span {
             color: #6e6e77;
-            font-size: 0.86rem;
+            font-size: 0.82rem;
             line-height: 1.42;
+        }
+
+        .sidebar-panel {
+            margin-bottom: 0.75rem;
+            padding: 0.9rem;
+            border: 1px solid rgba(77, 91, 104, 0.12);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.58);
+        }
+
+        .sidebar-title {
+            margin: 0 0 0.65rem;
+            color: var(--ink);
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .sidebar-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.7rem;
+            padding: 0.48rem 0;
+            border-top: 1px solid rgba(77, 91, 104, 0.1);
+            color: var(--subtle);
+            font-size: 0.86rem;
+        }
+
+        .sidebar-row:first-of-type {
+            border-top: none;
+            padding-top: 0;
+        }
+
+        .sidebar-row strong {
+            color: var(--ink);
+            font-size: 0.86rem;
+            font-weight: 700;
+            text-align: right;
+        }
+
+        .status-dot {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.38rem;
+        }
+
+        .status-dot::before {
+            content: "";
+            width: 0.48rem;
+            height: 0.48rem;
+            border-radius: 50%;
+            background: var(--success);
         }
 
         .agent-badge,
@@ -528,53 +581,6 @@ def apply_custom_css() -> None:
             line-height: 1.45;
         }
 
-        .section-card,
-        .trust-card,
-        .info-card {
-            padding: 1.1rem 1.2rem;
-        }
-
-        .section-heading {
-            margin-bottom: 0.75rem;
-        }
-
-        .section-heading h3 {
-            margin: 0;
-            font-size: 1.28rem;
-        }
-
-        .section-heading p {
-            margin: 0.25rem 0 0;
-            color: var(--subtle);
-        }
-
-        .store-meta {
-            display: grid;
-            gap: 0.7rem;
-        }
-
-        .store-item {
-            padding: 0.8rem 0.95rem;
-            border-radius: 18px;
-            background: rgba(255, 255, 255, 0.68);
-            border: 1px solid rgba(138, 75, 22, 0.1);
-        }
-
-        .store-item strong,
-        .trust-pill strong {
-            display: block;
-            font-size: 0.96rem;
-            color: var(--ink);
-        }
-
-        .store-item span,
-        .trust-pill span {
-            display: block;
-            margin-top: 0.22rem;
-            color: var(--subtle);
-            line-height: 1.45;
-        }
-
         .notice-card {
             padding: 0.9rem 1rem;
             margin-bottom: 0.65rem;
@@ -609,40 +615,8 @@ def apply_custom_css() -> None:
             font-size: 0.9rem;
         }
 
-        .trust-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 0.85rem;
-        }
-
-        .trust-pill {
-            padding: 0.95rem 1rem;
-            border-radius: 18px;
-            background: rgba(255, 255, 255, 0.65);
-            border: 1px solid rgba(138, 75, 22, 0.1);
-        }
-
-        .welcome-card {
-            border: 1px solid rgba(138, 75, 22, 0.12);
-            border-radius: 22px;
-            padding: 1rem 1.05rem;
-            background: rgba(255, 250, 244, 0.88);
-            margin-bottom: 0.6rem;
-        }
-
-        .welcome-card h4 {
-            margin: 0 0 0.3rem;
-            font-size: 1.2rem;
-        }
-
-        .welcome-card p {
-            margin: 0;
-            color: var(--subtle);
-            line-height: 1.6;
-        }
-
         .stButton > button {
-            border-radius: 999px;
+            border-radius: 8px;
             border: 1px solid rgba(138, 75, 22, 0.18);
             background: rgba(255, 252, 247, 0.95);
             color: var(--ink);
@@ -662,9 +636,29 @@ def apply_custom_css() -> None:
         }
 
         @media (max-width: 900px) {
-            .hero-title {
-                font-size: 2.35rem;
+            .user-bubble {
+                max-width: 92%;
             }
+        }
+
+        @media (max-width: 700px) {
+            .brand-copy {
+                width: 100%;
+            }
+
+            .brand-meta {
+                width: 100%;
+            }
+
+            [data-testid="stHorizontalBlock"]:has(.feature-action-anchor) {
+                flex-direction: column;
+            }
+
+            [data-testid="stVerticalBlock"]:has(.feature-action-anchor) {
+                margin-bottom: 0.4rem;
+                width: 100% !important;
+            }
+
         }
         </style>
         """,
@@ -840,37 +834,17 @@ def progress_note_html(message: str) -> str:
     return f'<div class="progress-note">• {message}</div>'
 
 
-def render_hero() -> None:
-    hero_shell = st.container()
-    with hero_shell:
-        st.markdown('<div class="hero-shell-anchor"></div>', unsafe_allow_html=True)
-        st.markdown(
-            """
-            <div class="hero-card">
-              <div class="dm-header">
-                <div class="dm-brand">
-                  <div class="dm-logo">D</div>
-                  <div>
-                    <span class="dm-name">Dodam Restaurant</span>
-                    <span class="dm-meta">AI host for menu, orders, reservations, and care</span>
-                  </div>
-                </div>
-                <div class="dm-social">♡ 12.4k likes</div>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-
 def render_feature_strip() -> None:
     feature_shell = st.container()
     with feature_shell:
         st.markdown('<div class="feature-shell-anchor"></div>', unsafe_allow_html=True)
-        top_row = FEATURE_ACTIONS[:3]
-        bottom_row = FEATURE_ACTIONS[3:]
 
-        def _render_action_cell(title: str, description: str, prompt: str, key: str) -> None:
+        def _render_action_cell(
+            title: str,
+            description: str,
+            prompt: str,
+            key: str,
+        ) -> None:
             st.markdown('<div class="feature-action-anchor"></div>', unsafe_allow_html=True)
             st.markdown(
                 f"""
@@ -881,19 +855,21 @@ def render_feature_strip() -> None:
                 """,
                 unsafe_allow_html=True,
             )
-            if st.button(title, key=key, use_container_width=True):
+            if st.button("시작", key=key, use_container_width=True):
                 st.session_state["starter_prompt"] = prompt
 
-        top_columns = st.columns(3, gap="medium")
-        for idx, (title, description, prompt) in enumerate(top_row):
-            with top_columns[idx]:
-                _render_action_cell(title, description, prompt, f"feature-action-top-{idx}")
-
-        spacer_left, mid_left, mid_right, spacer_right = st.columns([0.45, 1, 1, 0.45], gap="medium")
-        bottom_columns = [mid_left, mid_right]
-        for idx, (title, description, prompt) in enumerate(bottom_row):
-            with bottom_columns[idx]:
-                _render_action_cell(title, description, prompt, f"feature-action-bottom-{idx}")
+        for row_idx in range(0, len(FEATURE_ACTIONS), 3):
+            columns = st.columns(3, gap="small")
+            for col_idx, (title, description, prompt) in enumerate(
+                FEATURE_ACTIONS[row_idx : row_idx + 3]
+            ):
+                with columns[col_idx]:
+                    _render_action_cell(
+                        title,
+                        description,
+                        prompt,
+                        f"feature-action-{row_idx + col_idx}",
+                    )
 
 
 def render_quick_prompt_buttons(prefix: str, prompts: list[tuple[str, str]]) -> None:
@@ -954,6 +930,43 @@ def render_user_bubble(content) -> None:
     )
 
 
+def render_sidebar_panel(context: RestaurantContext) -> None:
+    active_agent = st.session_state.get("active_agent_name") or "Ready"
+    st.markdown(
+        f"""
+        <div class="brand-card">
+          <div class="brand-copy">
+            <div class="brand-mark">D</div>
+            <div>
+              <div class="brand-name">{html.escape(context.restaurant_name)}</div>
+              <div class="brand-meta">
+                <span class="brand-pill">{html.escape(context.branch_name)}</span>
+                <span class="brand-pill">{html.escape(context.phone_number)}</span>
+              </div>
+            </div>
+          </div>
+          <span class="brand-pill">Open now</span>
+        </div>
+        <div class="sidebar-panel">
+          <div class="sidebar-title">Conversation</div>
+          <div class="sidebar-row">
+            <span>Status</span>
+            <strong class="status-dot">{html.escape(active_agent)}</strong>
+          </div>
+          <div class="sidebar-row">
+            <span>Branch</span>
+            <strong>{html.escape(context.branch_name)}</strong>
+          </div>
+          <div class="sidebar-row">
+            <span>Phone</span>
+            <strong>{html.escape(context.phone_number)}</strong>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def get_raw_item(item):
     raw_item = item.get("raw_item")
     return raw_item if isinstance(raw_item, dict) else item
@@ -1010,6 +1023,7 @@ def render_sidebar(context: RestaurantContext, session: SQLiteSession):
     with st.sidebar:
         sidebar_summary_placeholder = st.empty()
         render_agent_summary(sidebar_summary_placeholder)
+        render_sidebar_panel(context)
         if st.button("Reset memory", key="reset-memory", use_container_width=True):
             asyncio.run(session.clear_session())
             clear_message_agent_map()
@@ -1395,7 +1409,6 @@ init_session_state()
 context = RestaurantContext()
 session = st.session_state["session"]
 
-render_hero()
 render_feature_strip()
 sidebar_summary_placeholder = render_sidebar(context, session)
 
