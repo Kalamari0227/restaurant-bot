@@ -475,7 +475,7 @@ def apply_custom_css() -> None:
         }
 
         [data-testid="stVerticalBlock"]:has(.feature-action-anchor) * {
-            color: var(--ink);
+            color: var(--ink) !important;
         }
 
         [data-testid="stVerticalBlock"]:has(.feature-action-anchor) .feature-card {
@@ -506,6 +506,13 @@ def apply_custom_css() -> None:
             margin-bottom: 0.24rem;
             color: #151515;
             font-size: 0.92rem;
+        }
+
+        .feature-card,
+        .feature-card strong,
+        .feature-card [data-testid="stMarkdownContainer"],
+        .feature-card [data-testid="stMarkdownContainer"] * {
+            color: #151515 !important;
         }
 
         .feature-card span {
