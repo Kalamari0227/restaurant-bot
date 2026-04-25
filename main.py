@@ -31,7 +31,8 @@ st.set_page_config(
 
 
 SESSION_DB_PATH = "restaurant-bot-memory.db"
-BROWSER_SESSION_COOKIE = "restaurant_bot_session_id"
+BROWSER_SESSION_QUERY_PARAM = "rb_session_id"
+BROWSER_SESSION_STORAGE_KEY = "restaurant_bot_session_id"
 
 
 AGENT_THEMES = {
@@ -770,33 +771,40 @@ def apply_custom_css() -> None:
     )
 
 
-def ensure_browser_session_cookie() -> None:
-    cookie_value = st.context.cookies.get(BROWSER_SESSION_COOKIE)
-    if cookie_value:
-        st.session_state["conversation_id"] = f"restaurant-bot-{cookie_value}"
+def _session_token_from_query() -> str:
+    token = st.query_params.get(BROWSER_SESSION_QUERY_PARAM, "")
+    if isinstance(token, list):
+        token = token[0] if token else ""
+
+    return "".join(
+        char for char in str(token) if char.isalnum() or char in {"-", "_"}
+    )
+
+
+def ensure_browser_session_id() -> None:
+    query_token = _session_token_from_query()
+    if query_token:
+        st.session_state["conversation_id"] = f"restaurant-bot-{query_token}"
         return
 
     components.html(
         f"""
         <script>
-        const cookieName = "{BROWSER_SESSION_COOKIE}";
-        const existingCookie = document.cookie
-          .split("; ")
-          .find(row => row.startsWith(`${{cookieName}}=`));
+        const storageKey = "{BROWSER_SESSION_STORAGE_KEY}";
+        const paramName = "{BROWSER_SESSION_QUERY_PARAM}";
+        const parentWindow = window.parent;
+        let value = parentWindow.localStorage.getItem(storageKey);
 
-        if (!existingCookie) {{
-          const value =
-            (window.crypto && window.crypto.randomUUID)
-              ? window.crypto.randomUUID()
-              : `${{Date.now()}}-${{Math.random().toString(16).slice(2)}}`;
-          const cookie = `${{cookieName}}=${{value}}; path=/; max-age=2592000; SameSite=Lax`;
-          document.cookie = cookie;
-          try {{
-            window.parent.document.cookie = cookie;
-          }} catch (error) {{}}
+        if (!value) {{
+          value = parentWindow.crypto && parentWindow.crypto.randomUUID
+            ? parentWindow.crypto.randomUUID()
+            : `${{Date.now()}}-${{Math.random().toString(16).slice(2)}}`;
+          parentWindow.localStorage.setItem(storageKey, value);
         }}
 
-        window.parent.location.reload();
+        const url = new URL(parentWindow.location.href);
+        url.searchParams.set(paramName, value);
+        parentWindow.location.replace(url.toString());
         </script>
         """,
         height=0,
@@ -1545,7 +1553,7 @@ except RuntimeError as exc:
 
 
 apply_custom_css()
-ensure_browser_session_cookie()
+ensure_browser_session_id()
 init_session_state()
 
 context = RestaurantContext()
