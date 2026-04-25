@@ -187,6 +187,50 @@ def _find_menu_item(item_name: str):
     return None
 
 
+def _ordered_menu_item_names(items: str) -> tuple[list[str], list[str]]:
+    normalized_order = items.lower()
+    found: list[str] = []
+    for item in MENU_ITEMS:
+        if item["name"].lower() in normalized_order:
+            found.append(item["name"])
+
+    unknown_parts = [
+        part.strip(" .")
+        for part in items.replace("\n", ",").split(",")
+        if part.strip(" .")
+    ]
+    for found_name in found:
+        unknown_parts = [
+            part
+            for part in unknown_parts
+            if found_name.lower() not in part.lower()
+        ]
+
+    return found, unknown_parts
+
+
+def _menu_validation_message(items: str) -> str | None:
+    found, unknown_parts = _ordered_menu_item_names(items)
+    if found and not unknown_parts:
+        return None
+
+    if found:
+        known = ", ".join(found)
+        unknown = ", ".join(unknown_parts)
+        return (
+            "일부 요청 메뉴를 현재 메뉴에서 확인하지 못했습니다.\n"
+            f"- 확인된 메뉴: {known}\n"
+            f"- 확인 필요: {unknown}\n"
+            "메뉴에 있는 항목만 주문을 도와드릴 수 있습니다. 메뉴명을 다시 확인해 주세요."
+        )
+
+    return (
+        "요청하신 메뉴를 현재 메뉴에서 확인하지 못했습니다. "
+        "메뉴에 있는 항목만 주문을 도와드릴 수 있습니다. "
+        "메뉴명을 다시 확인하거나 추천 메뉴를 먼저 요청해 주세요."
+    )
+
+
 @function_tool
 def search_menu(
     context: RestaurantContext,
@@ -284,6 +328,10 @@ def place_order(
         service_type: 매장, 포장, or 배달
         special_request: Extra request for the kitchen
     """
+    validation_message = _menu_validation_message(items)
+    if validation_message:
+        return validation_message
+
     note = special_request if special_request else "없음"
     return (
         "주문 접수를 시작했습니다.\n"
@@ -309,6 +357,10 @@ def confirm_order(
         service_type: 매장, 포장, or 배달
         special_request: Extra request for the kitchen
     """
+    validation_message = _menu_validation_message(items)
+    if validation_message:
+        return validation_message
+
     note = special_request if special_request else "없음"
     return (
         "주문이 확인되었습니다.\n"

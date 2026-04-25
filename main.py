@@ -1,6 +1,7 @@
 import asyncio
 import html
 import sqlite3
+import uuid
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -769,9 +770,11 @@ def apply_custom_css() -> None:
 
 
 def init_session_state() -> None:
+    st.session_state.setdefault("conversation_id", f"restaurant-bot-{uuid.uuid4()}")
+
     if "session" not in st.session_state:
         st.session_state["session"] = SQLiteSession(
-            "restaurant-bot",
+            st.session_state["conversation_id"],
             SESSION_DB_PATH,
         )
 
