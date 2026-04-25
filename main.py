@@ -31,6 +31,7 @@ st.set_page_config(
 
 
 SESSION_DB_PATH = "restaurant-bot-memory.db"
+BROWSER_SESSION_COOKIE = "restaurant_bot_session_id"
 
 
 AGENT_THEMES = {
@@ -767,6 +768,41 @@ def apply_custom_css() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def ensure_browser_session_cookie() -> None:
+    cookie_value = st.context.cookies.get(BROWSER_SESSION_COOKIE)
+    if cookie_value:
+        st.session_state["conversation_id"] = f"restaurant-bot-{cookie_value}"
+        return
+
+    components.html(
+        f"""
+        <script>
+        const cookieName = "{BROWSER_SESSION_COOKIE}";
+        const existingCookie = document.cookie
+          .split("; ")
+          .find(row => row.startsWith(`${{cookieName}}=`));
+
+        if (!existingCookie) {{
+          const value =
+            (window.crypto && window.crypto.randomUUID)
+              ? window.crypto.randomUUID()
+              : `${{Date.now()}}-${{Math.random().toString(16).slice(2)}}`;
+          const cookie = `${{cookieName}}=${{value}}; path=/; max-age=2592000; SameSite=Lax`;
+          document.cookie = cookie;
+          try {{
+            window.parent.document.cookie = cookie;
+          }} catch (error) {{}}
+        }}
+
+        window.parent.location.reload();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+    st.stop()
 
 
 def init_session_state() -> None:
@@ -1509,6 +1545,7 @@ except RuntimeError as exc:
 
 
 apply_custom_css()
+ensure_browser_session_cookie()
 init_session_state()
 
 context = RestaurantContext()
