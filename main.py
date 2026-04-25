@@ -32,7 +32,6 @@ st.set_page_config(
 
 SESSION_DB_PATH = "restaurant-bot-memory.db"
 BROWSER_SESSION_QUERY_PARAM = "rb_session_id"
-BROWSER_SESSION_STORAGE_KEY = "restaurant_bot_session_id"
 
 
 AGENT_THEMES = {
@@ -783,34 +782,11 @@ def _session_token_from_query() -> str:
 
 def ensure_browser_session_id() -> None:
     query_token = _session_token_from_query()
-    if query_token:
-        st.session_state["conversation_id"] = f"restaurant-bot-{query_token}"
-        return
+    if not query_token:
+        query_token = str(uuid.uuid4())
+        st.query_params[BROWSER_SESSION_QUERY_PARAM] = query_token
 
-    components.html(
-        f"""
-        <script>
-        const storageKey = "{BROWSER_SESSION_STORAGE_KEY}";
-        const paramName = "{BROWSER_SESSION_QUERY_PARAM}";
-        const parentWindow = window.parent;
-        let value = parentWindow.localStorage.getItem(storageKey);
-
-        if (!value) {{
-          value = parentWindow.crypto && parentWindow.crypto.randomUUID
-            ? parentWindow.crypto.randomUUID()
-            : `${{Date.now()}}-${{Math.random().toString(16).slice(2)}}`;
-          parentWindow.localStorage.setItem(storageKey, value);
-        }}
-
-        const url = new URL(parentWindow.location.href);
-        url.searchParams.set(paramName, value);
-        parentWindow.location.replace(url.toString());
-        </script>
-        """,
-        height=0,
-        width=0,
-    )
-    st.stop()
+    st.session_state["conversation_id"] = f"restaurant-bot-{query_token}"
 
 
 def init_session_state() -> None:
